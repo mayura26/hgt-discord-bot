@@ -4,7 +4,7 @@ module.exports = {
   },
   ROLES: {
     STAFF: 'Admin',           // Mentioned in ticket messages; can be highest role
-    TICKET_ACCESS: 'Support', // Role given access to ticket channels; must be below the bot's role
+    TICKET_ACCESS: 'Staff', // Role given access to ticket channels; must be below the bot's role
     NEW: 'New',
   },
   CUSTOM_IDS: {
