@@ -10,6 +10,7 @@ const {
 const { ROLES, CUSTOM_IDS, COLORS, TICKET_CATEGORY_NAME } = require('../constants');
 
 async function getOrCreateTicketCategory(guild) {
+  const botId = guild.members.me?.id ?? guild.client.user.id;
   let category = guild.channels.cache.find(
     (ch) =>
       ch.name === TICKET_CATEGORY_NAME && ch.type === ChannelType.GuildCategory,
@@ -19,12 +20,29 @@ async function getOrCreateTicketCategory(guild) {
       name: TICKET_CATEGORY_NAME,
       type: ChannelType.GuildCategory,
       permissionOverwrites: [
+        { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
         {
-          id: guild.id,
-          deny: [PermissionFlagsBits.ViewChannel],
+          id: botId,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.ManageChannels,
+          ],
         },
       ],
     });
+  } else {
+    // Ensure the bot has explicit access to the category (required to create channels under it)
+    const botOverwrite = category.permissionOverwrites.cache.get(botId);
+    if (!botOverwrite?.allow.has(PermissionFlagsBits.ViewChannel)) {
+      try {
+        await category.permissionOverwrites.edit(botId, {
+          ViewChannel: true,
+          ManageChannels: true,
+        });
+      } catch (err) {
+        console.warn('Could not add bot overwrite to Tickets category:', err.message);
+      }
+    }
   }
   return category;
 }
