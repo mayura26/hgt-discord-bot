@@ -47,6 +47,10 @@ async function createTicket(interaction) {
 
   const category = await getOrCreateTicketCategory(guild);
   const staffRole = guild.roles.cache.find((r) => r.name === ROLES.STAFF);
+  // Role that gets channel access; must be below the bot (e.g. Support). Admins can have both Admin + this role.
+  const ticketAccessRole = ROLES.TICKET_ACCESS
+    ? guild.roles.cache.find((r) => r.name === ROLES.TICKET_ACCESS)
+    : staffRole;
 
   const suffix = Math.random().toString(36).substring(2, 6);
   const channelName = `ticket-${member.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}-${suffix}`;
@@ -75,9 +79,13 @@ async function createTicket(interaction) {
     },
   ];
 
-  if (staffRole) {
+  // Only add a role to overwrites if it's below the bot (Discord hierarchy). Use TICKET_ACCESS role
+  // (e.g. Support) so Admin can stay highest; give staff both Admin and Support.
+  const botHighestRole = guild.members.me?.roles?.highest;
+  const roleToAdd = ticketAccessRole || staffRole;
+  if (roleToAdd && botHighestRole && roleToAdd.position < botHighestRole.position) {
     permissionOverwrites.push({
-      id: staffRole.id,
+      id: roleToAdd.id,
       allow: [
         PermissionFlagsBits.ViewChannel,
         PermissionFlagsBits.SendMessages,
@@ -86,13 +94,28 @@ async function createTicket(interaction) {
     });
   }
 
-  const ticketChannel = await guild.channels.create({
-    name: channelName,
-    type: ChannelType.GuildText,
-    parent: category.id,
-    topic: `Ticket for ${member.id}`,
-    permissionOverwrites,
-  });
+  let ticketChannel;
+  try {
+    ticketChannel = await guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      parent: category.id,
+      topic: `Ticket for ${member.id}`,
+      permissionOverwrites,
+    });
+  } catch (err) {
+    if (err.code === 50013) {
+      console.error('Ticket channel create failed (50013):', err.message);
+      return interaction.editReply({
+        content:
+          'The bot does not have permission to create ticket channels. ' +
+          'Please ensure the bot has **Manage Channels** and that its role is **above** the "' +
+          (ROLES.TICKET_ACCESS || 'Staff') +
+          '" role in Server Settings → Roles.',
+      });
+    }
+    throw err;
+  }
 
   const ticketEmbed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
