@@ -4,6 +4,7 @@ module.exports = {
   },
   ROLES: {
     STAFF: 'Admin',
+    NEW: 'New',
   },
   CUSTOM_IDS: {
     BOOK_TICKET_BUTTON: 'book-ticket',
