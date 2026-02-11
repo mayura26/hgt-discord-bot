@@ -27,6 +27,7 @@ module.exports = {
           `Holy Grail Trading provides automated trading solutions to help you ` +
           `navigate the markets. Get started by visiting our portal:\n` +
           `${URLS.PORTAL}\n\n` +
+          `For more info on our system, visit our website: ${URLS.WEBSITE}\n\n` +
           `If you need help getting set up, use the **/onboarding** command for a step-by-step guide.\n\n` +
           `If you have questions or need help getting set up, click the button ` +
           `below to **book a ticket** and a staff member will assist you.`,

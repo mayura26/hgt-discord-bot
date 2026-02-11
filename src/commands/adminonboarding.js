@@ -28,6 +28,14 @@ module.exports = {
           name: 'Step 4 — Verify Contract',
           value: 'Verify the user has their contract signed.',
         },
+        {
+          name: 'Step 5 — Create Private Discord Channel',
+          value: 'Create a private channel for the user, set correct permissions and visibility for staff, and the user.',
+        },
+        {
+          name: 'Step 6 — Assign Discord Roles',
+          value: 'Assign the user to the correct Discord roles (e.g., Trial, Subscriber, Premium, etc.) within the server.',
+        },
       )
       .setTimestamp()
       .setFooter({ text: 'Holy Grail Trading' });

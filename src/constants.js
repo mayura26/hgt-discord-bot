@@ -16,6 +16,7 @@ module.exports = {
     SUCCESS: 0x57f287,
   },
   URLS: {
+    WEBSITE: 'https://holygrailtrading.io/',
     PORTAL: 'https://portal.holygrailtrading.io/',
     GETTING_STARTED: 'https://portal.holygrailtrading.io/support/getting-started',
     BOT_SETUP: 'https://portal.holygrailtrading.io/support/bot-configuration',

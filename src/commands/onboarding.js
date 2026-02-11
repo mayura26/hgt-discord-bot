@@ -20,11 +20,15 @@ module.exports = {
           name: 'Step 2 — User Management',
           value:
             'Follow the steps in **User Management** to sign the contract and ' +
-            'complete the payment flow (skip payment if you are a trial user).',
+            'complete the payment flow.',
         },
         {
           name: 'Step 3 — Getting Started Guide',
           value: `Complete the getting started guide to finish your setup:\n${URLS.GETTING_STARTED}`,
+        },
+        {
+          name: 'Step 4 — Setup Your Bots',
+          value: `Setup your bots following the instructions on the portal:\n${URLS.BOT_SETUP}`,
         },
       )
       .setTimestamp()
