@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { COLORS, URLS } = require('../constants');
 
 module.exports = {
@@ -32,6 +32,6 @@ module.exports = {
       .setTimestamp()
       .setFooter({ text: 'Holy Grail Trading' });
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   },
 };

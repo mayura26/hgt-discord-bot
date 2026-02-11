@@ -1,4 +1,4 @@
-const { Events } = require('discord.js');
+const { Events, MessageFlags } = require('discord.js');
 const { CUSTOM_IDS } = require('../constants');
 const ticketManager = require('../utils/ticketManager');
 
@@ -17,7 +17,7 @@ module.exports = {
         await command.execute(interaction);
       } catch (error) {
         console.error(`Error executing ${interaction.commandName}:`, error);
-        const reply = { content: 'There was an error executing this command.', ephemeral: true };
+        const reply = { content: 'There was an error executing this command.', flags: MessageFlags.Ephemeral };
         if (interaction.replied || interaction.deferred) {
           await interaction.followUp(reply);
         } else {

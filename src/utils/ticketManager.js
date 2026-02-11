@@ -5,6 +5,7 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
 } = require('discord.js');
 const { ROLES, CUSTOM_IDS, COLORS, TICKET_CATEGORY_NAME } = require('../constants');
 
@@ -29,7 +30,7 @@ async function getOrCreateTicketCategory(guild) {
 }
 
 async function createTicket(interaction) {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const guild = interaction.guild;
   const member = interaction.member;
@@ -130,7 +131,7 @@ async function closeTicket(interaction) {
   if (!channel.name.startsWith('ticket-')) {
     return interaction.reply({
       content: 'This is not a ticket channel.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 

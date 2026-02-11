@@ -5,6 +5,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
   PermissionFlagsBits,
+  MessageFlags,
 } = require('discord.js');
 const { CHANNELS, ROLES, CUSTOM_IDS, COLORS, URLS } = require('../constants');
 
@@ -22,7 +23,18 @@ module.exports = {
     if (!channel) {
       return interaction.reply({
         content: 'Could not find #landing-spot channel.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    const me = interaction.guild.members.me;
+    const canSend = channel.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages);
+    if (!canSend) {
+      return interaction.reply({
+        content:
+          'I don\'t have permission to send messages in #landing-spot. ' +
+          'Grant the bot **View Channel** and **Send Messages** for that channel (or give it a role with those permissions), then try again.',
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -66,7 +78,7 @@ module.exports = {
 
     await interaction.reply({
       content: 'Welcome message sent to #landing-spot.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   },
 };
