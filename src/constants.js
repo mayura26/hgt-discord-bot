@@ -6,6 +6,8 @@ module.exports = {
     STAFF: 'Admin',           // Mentioned in ticket messages; can be highest role
     TICKET_ACCESS: 'Staff', // Role given access to ticket channels; must be below the bot's role
     NEW: 'New',
+    TRIAL: 'Trial',
+    SUBSCRIBER: 'Subscriber',
   },
   CUSTOM_IDS: {
     BOOK_TICKET_BUTTON: 'book-ticket',
@@ -23,4 +25,5 @@ module.exports = {
     TRADING_STRATEGIES: 'https://portal.holygrailtrading.io/support/trading-strategies',
   },
   TICKET_CATEGORY_NAME: 'Tickets',
+  PERSONAL_GUIDANCE_CATEGORY_NAME: 'Personal Guidance',
 };
