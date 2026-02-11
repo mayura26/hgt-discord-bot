@@ -7,7 +7,7 @@ const {
   PermissionFlagsBits,
   MessageFlags,
 } = require('discord.js');
-const { CHANNELS, ROLES, CUSTOM_IDS, COLORS, URLS } = require('../constants');
+const { ROLES, CUSTOM_IDS, COLORS, URLS } = require('../constants');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -17,26 +17,6 @@ module.exports = {
 
   async execute(interaction) {
     const member = interaction.member;
-    const channel = interaction.guild.channels.cache.find(
-      (ch) => ch.name === CHANNELS.LANDING_SPOT,
-    );
-    if (!channel) {
-      return interaction.reply({
-        content: 'Could not find #landing-spot channel.',
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    const me = interaction.guild.members.me;
-    const canSend = channel.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages);
-    if (!canSend) {
-      return interaction.reply({
-        content:
-          'I don\'t have permission to send messages in #landing-spot. ' +
-          'Grant the bot **View Channel** and **Send Messages** for that channel (or give it a role with those permissions), then try again.',
-        flags: MessageFlags.Ephemeral,
-      });
-    }
 
     const welcomeEmbed = new EmbedBuilder()
       .setColor(COLORS.PRIMARY)
@@ -70,14 +50,10 @@ module.exports = {
       console.warn('Could not find "New" role.');
     }
 
-    await channel.send({
+    await interaction.reply({
       content: `${member}`,
       embeds: [welcomeEmbed],
       components: [row],
-    });
-
-    await interaction.reply({
-      content: 'Welcome message sent to #landing-spot.',
       flags: MessageFlags.Ephemeral,
     });
   },
