@@ -8,6 +8,7 @@ const {
   ROLES,
   PERSONAL_GUIDANCE_CATEGORY_NAME,
 } = require('../constants');
+const { getOnboardingEmbed } = require('../utils/onboardingEmbed');
 
 // Discord channel names: 2-100 chars; only a-z, 0-9, hyphen, underscore.
 function channelNameSlug(user) {
@@ -178,5 +179,11 @@ module.exports = {
       content: `Set up **${user.tag}** as customer: channel ${channel} created under Personal Guidance and role **${roleName}** assigned.`,
       flags: MessageFlags.Ephemeral,
     });
+
+    // Welcome message and onboarding in the new channel
+    const welcomeContent = `Hello ${user},\n\nThis channel is your personal support channel. We can help you with setup and configuration, discuss your goals, and provide advice on bot lineups, account purchasing, and related topics. Reach out here anytime if you ever have any concerns.`;
+
+    await channel.send({ content: welcomeContent });
+    await channel.send({ embeds: [getOnboardingEmbed()] });
   },
 };
