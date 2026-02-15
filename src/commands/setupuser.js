@@ -161,9 +161,16 @@ module.exports = {
       });
     }
 
+    // Verified: add; New: remove if present
+    const verifiedRole = guild.roles.cache.find((r) => r.name === ROLES.VERIFIED);
+    const newRole = guild.roles.cache.find((r) => r.name === ROLES.NEW);
+    const hadNewRole = newRole && member.roles.cache.has(newRole.id);
+
     let roleError = null;
     try {
       await member.roles.add(role);
+      if (verifiedRole) await member.roles.add(verifiedRole);
+      if (hadNewRole) await member.roles.remove(newRole);
     } catch (err) {
       roleError = err;
     }
@@ -175,8 +182,11 @@ module.exports = {
       });
     }
 
+    const roleParts = [`role **${roleName}** assigned`];
+    if (verifiedRole) roleParts.push('**Verified** added');
+    if (hadNewRole) roleParts.push('**New** removed');
     await interaction.editReply({
-      content: `Set up **${user.tag}** as customer: channel ${channel} created under Personal Guidance and role **${roleName}** assigned.`,
+      content: `Set up **${user.tag}** as customer: channel ${channel} created under Personal Guidance, ${roleParts.join(', ')}.`,
       flags: MessageFlags.Ephemeral,
     });
 

@@ -12,6 +12,7 @@ module.exports = {
       .setTitle('Support Resources')
       .setDescription(
         `**Getting Started**\n${URLS.GETTING_STARTED}\n\n` +
+        `**Quick Start Video**\n${URLS.VIDEO_TUTORIALS}\n\n` +
         `**Bot Setup**\n${URLS.BOT_SETUP}\n\n` +
         `**Trading Strategies**\n${URLS.TRADING_STRATEGIES}`,
       )

@@ -6,6 +6,7 @@ module.exports = {
     STAFF: 'Admin',           // Mentioned in ticket messages; can be highest role
     TICKET_ACCESS: 'Staff', // Role given access to ticket channels; must be below the bot's role
     NEW: 'New',
+    VERIFIED: 'Verified',
     TRIAL: 'Trial',
     SUBSCRIBER: 'Subscriber',
   },
@@ -23,6 +24,7 @@ module.exports = {
     GETTING_STARTED: 'https://portal.holygrailtrading.io/support/getting-started',
     BOT_SETUP: 'https://portal.holygrailtrading.io/support/bot-configuration',
     TRADING_STRATEGIES: 'https://portal.holygrailtrading.io/support/trading-strategies',
+    VIDEO_TUTORIALS: 'https://portal.holygrailtrading.io/support/video-tutorials',
   },
   TICKET_CATEGORY_NAME: 'Tickets',
   PERSONAL_GUIDANCE_CATEGORY_NAME: 'Personal Guidance',

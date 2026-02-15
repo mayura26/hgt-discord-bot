@@ -13,7 +13,7 @@ module.exports = {
       .setDescription(
         '**/help**\nShows this list of available commands.\n\n' +
         '**/onboarding**\nWalks you through the steps to get set up with Holy Grail Trading.\n\n' +
-        '**/support**\nShows links to our main support pages (Getting Started, Bot Setup, Trading Strategies).\n\n' +
+        '**/support**\nShows links to our main support pages (Getting Started, Quick Start Video, Bot Setup, Trading Strategies).\n\n' +
         '**/adminonboarding**\nAdmin checklist for onboarding a new user.',
       )
       .setTimestamp()
