@@ -285,9 +285,7 @@ async function handleEnd(interaction) {
     .setTitle('🏆 Giveaway Winner! 🏆')
     .setDescription(
       `🎊🎊🎊\n\nCongratulations to <@${winner.user_id}>!\n\n` +
-        `**Prize:** ${active.name}\n\n` +
-        `Total entries: ${entries.length}` +
-        (roleIds ? ` | Eligible: ${eligibleEntries.length}` : ''),
+        `**Prize:** ${active.name}`,
     )
     .setTimestamp()
     .setFooter({ text: 'Holy Grail Trading' });
