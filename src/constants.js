@@ -1,6 +1,7 @@
 module.exports = {
   CHANNELS: {
     LANDING_SPOT: 'landing-spot',
+    GIVEAWAYS: 'giveaways',
   },
   ROLES: {
     STAFF: 'Admin',           // Mentioned in ticket messages; can be highest role
@@ -13,10 +14,12 @@ module.exports = {
   CUSTOM_IDS: {
     BOOK_TICKET_BUTTON: 'book-ticket',
     CLOSE_TICKET_BUTTON: 'close-ticket',
+    GIVEAWAY_ENTER_BUTTON: 'giveaway-enter',
   },
   COLORS: {
     PRIMARY: 0x2b65ec,
     SUCCESS: 0x57f287,
+    GOLD: 0xffd700,
   },
   URLS: {
     WEBSITE: 'https://holygrailtrading.io/',

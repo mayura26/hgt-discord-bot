@@ -1,6 +1,7 @@
 const { Events, MessageFlags } = require('discord.js');
 const { CUSTOM_IDS } = require('../constants');
 const ticketManager = require('../utils/ticketManager');
+const db = require('../utils/database');
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -35,6 +36,22 @@ module.exports = {
       }
       if (interaction.customId === CUSTOM_IDS.CLOSE_TICKET_BUTTON) {
         await ticketManager.closeTicket(interaction);
+        return;
+      }
+
+      if (interaction.customId === CUSTOM_IDS.GIVEAWAY_ENTER_BUTTON) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const active = db.getActiveGiveaway();
+        if (!active) {
+          await interaction.editReply({ content: 'This giveaway has ended.' });
+          return;
+        }
+        const added = db.addEntry(active.id, interaction.user.id);
+        if (added) {
+          await interaction.editReply({ content: 'You have been entered into the giveaway! Good luck! 🎉' });
+        } else {
+          await interaction.editReply({ content: 'You are already entered in this giveaway!' });
+        }
         return;
       }
     }
