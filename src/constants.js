@@ -29,6 +29,7 @@ module.exports = {
   },
   URLS: {
     WEBSITE: 'https://holygrailtrading.io/',
+    BACKTESTS: 'https://holygrailtrading.io/backtests',
     PORTAL: 'https://portal.holygrailtrading.io/',
     GETTING_STARTED: 'https://portal.holygrailtrading.io/support/getting-started',
     BOT_SETUP: 'https://portal.holygrailtrading.io/support/bot-configuration',

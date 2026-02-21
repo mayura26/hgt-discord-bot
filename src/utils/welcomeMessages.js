@@ -20,6 +20,8 @@ function getColdJoinWelcome(member) {
         `You don't need to install anything or talk to anyone right now.\n\n` +
         `Most people here start by just lurking and getting a feel for how things work. That's totally fine.\n\n` +
         `If you're curious, here are a few good places to explore at your own pace:\n\n` +
+        `• **Backtests** – historical performance data: ${URLS.BACKTESTS}\n` +
+        `• **Website** – more about us and our system: ${URLS.WEBSITE}\n` +
         `• #payout-profits – real trader payouts and results\n` +
         `• #announcements – latest bot updates and performance notes\n` +
         `• #general – open discussion and questions from the community\n\n` +
@@ -81,10 +83,11 @@ function getPropHuntWelcome(member) {
       `Hey ${member}, welcome aboard!\n\n` +
         `Most people start by just lurking and getting a feel for how things work. That's totally fine.\n\n` +
         `Here are a few good places to explore at your own pace:\n\n` +
+        `• **Backtests** – historical performance data: ${URLS.BACKTESTS}\n` +
+        `• **Website** – more about us and our system: ${URLS.WEBSITE}\n` +
         `• #payout-profits – real trader payouts and results\n` +
         `• #announcements – latest bot updates and performance notes\n` +
         `• #general – open discussion and questions from the community\n\n` +
-        `Check out our website for backtests and more: ${URLS.WEBSITE}\n\n` +
         `There's no rush. Read, scroll, and see if this aligns with how you think about trading.\n\n` +
         `If you want help or clarity:\n` +
         `Post a question in #general or use **/ask** — or click below to **book a ticket** to talk to staff directly.`,
