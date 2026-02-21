@@ -100,7 +100,7 @@ const STOPWORDS = new Set([
   'how','do','i','to','the','a','is','are','what','can','my','me','about',
   'in','for','of','and','or','it','on','at','an','with','this','that','get',
   'use','using','does','will','should','would','could','need','want',
-  'have','here',
+  'have','here','right','now','best',
 ]);
 
 /**
@@ -325,7 +325,6 @@ function isAvailable() {
  * @returns {Promise<{ results: object[], confidence: 'high'|'low', importantTerms: string[], openAIAnswer: string|null, citedResults: object[]|null }>}
  */
 async function searchIndexes(query) {
-  const threshold = config.supportConfidenceThreshold;
   const importantTerms = extractImportantTerms(query);
   const combined = [];
 
@@ -375,17 +374,12 @@ async function searchIndexes(query) {
     }
   }
 
-  // Only call OpenAI when there is a meaningful topical overlap
-  const topOverlap = results.length ? results[0]._overlap : 0;
-  if (topOverlap < 0.3) {
-    // Clearly off-topic — don't pretend we found something relevant
+  // No results at all — nothing to work with
+  if (!results.length) {
     return { results, confidence: 'none', importantTerms, openAIAnswer: null, citedResults: null };
   }
-  if (topOverlap < 0.7) {
-    return { results, confidence: 'low', importantTerms, openAIAnswer: null, citedResults: null };
-  }
 
-  // OpenAI re-ranking layer
+  // Always call OpenAI — it decides whether the question is answerable from the articles
   const openAIResult = await askOpenAI(query, results.slice(0, 6));
 
   if (openAIResult) {
@@ -398,12 +392,8 @@ async function searchIndexes(query) {
     };
   }
 
-  // Fallback: keyword confidence
-  const topScore = results.length ? results[0]._adjustedScore : 0;
-  const strongCount = results.filter(r => r._adjustedScore >= threshold * 0.6).length;
-  const confidence = topScore >= threshold && strongCount >= 2 ? 'high' : 'low';
-
-  return { results, confidence, importantTerms, openAIAnswer: null, citedResults: null };
+  // OpenAI couldn't answer from the provided articles
+  return { results, confidence: 'low', importantTerms, openAIAnswer: null, citedResults: null };
 }
 
 /**
