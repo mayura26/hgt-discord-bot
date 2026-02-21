@@ -197,7 +197,7 @@ async function askOpenAI(question, candidates) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 300, temperature: 0.2 }),
+      body: JSON.stringify({ model: 'gpt-4.1-mini', messages, max_tokens: 300, temperature: 0.2 }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -689,7 +689,7 @@ async function answerFollowup(originalQuestion, originalAnswer, followupQuestion
     response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 300, temperature: 0.2 }),
+      body: JSON.stringify({ model: 'gpt-4.1-mini', messages, max_tokens: 300, temperature: 0.2 }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
