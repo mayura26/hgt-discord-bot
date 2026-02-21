@@ -1,6 +1,7 @@
 const { Events, MessageFlags, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { CUSTOM_IDS } = require('../constants');
 const ticketManager = require('../utils/ticketManager');
+const { getReturningCustomerWelcome, getPropHuntWelcome } = require('../utils/welcomeMessages');
 const db = require('../utils/database');
 const askContext = require('../utils/askContext');
 const {
@@ -37,6 +38,22 @@ module.exports = {
 
     // Button interactions
     if (interaction.isButton()) {
+      if (interaction.customId === CUSTOM_IDS.WELCOME_CUSTOMER) {
+        const { embed, components } = getReturningCustomerWelcome(interaction.member);
+        await interaction.update({
+          embeds: [embed],
+          components,
+        });
+        return;
+      }
+      if (interaction.customId === CUSTOM_IDS.WELCOME_PROP) {
+        const { embed, components } = getPropHuntWelcome(interaction.member);
+        await interaction.update({
+          embeds: [embed],
+          components,
+        });
+        return;
+      }
       if (interaction.customId === CUSTOM_IDS.BOOK_TICKET_BUTTON) {
         await ticketManager.createTicket(interaction);
         return;

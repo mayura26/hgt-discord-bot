@@ -1,46 +1,38 @@
 const {
   SlashCommandBuilder,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   PermissionFlagsBits,
   MessageFlags,
 } = require('discord.js');
-const { ROLES, CUSTOM_IDS, COLORS, URLS } = require('../constants');
+const { ROLES } = require('../constants');
+const {
+  getColdJoinWelcome,
+  getReturningCustomerWelcome,
+  getPropHuntWelcome,
+  getSelfSelectWelcome,
+} = require('../utils/welcomeMessages');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('testwelcome')
     .setDescription('Simulates the welcome message for testing (Admin only)')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption((opt) =>
+      opt
+        .setName('type')
+        .setDescription('Which welcome flow to simulate')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Both: Cold + Self-select (for review)', value: 'both' },
+          { name: 'Cold join (ad)', value: 'cold' },
+          { name: 'Self-select (click the button)', value: 'self' },
+          { name: 'Already a customer', value: 'customer' },
+          { name: 'Found via Discord / want to know more', value: 'prop' },
+        ),
+    ),
 
   async execute(interaction) {
     const member = interaction.member;
-
-    const welcomeEmbed = new EmbedBuilder()
-      .setColor(COLORS.PRIMARY)
-      .setTitle('Welcome to Holy Grail Trading!')
-      .setDescription(
-        `Hey ${member}, welcome aboard!\n\n` +
-          `Holy Grail Trading provides automated trading solutions to help you ` +
-          `navigate the markets. Get started by visiting our portal:\n` +
-          `${URLS.PORTAL}\n\n` +
-          `For more info on our system, visit our website: ${URLS.WEBSITE}\n\n` +
-          `If you need help getting set up, use the **/onboarding** command for a step-by-step guide.\n\n` +
-          `If you have questions or need help getting set up, click the button ` +
-          `below to **book a ticket** and a staff member will assist you.`,
-      )
-      .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-      .setTimestamp()
-      .setFooter({ text: 'Holy Grail Trading' });
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(CUSTOM_IDS.BOOK_TICKET_BUTTON)
-        .setLabel('Book a Ticket')
-        .setStyle(ButtonStyle.Primary),
-    );
+    const type = interaction.options.getString('type');
 
     const newRole = interaction.guild.roles.cache.find(
       (r) => r.name === ROLES.NEW,
@@ -51,10 +43,46 @@ module.exports = {
       console.warn('Could not find "New" role.');
     }
 
+    if (type === 'both') {
+      const cold = getColdJoinWelcome(member);
+      const self = getSelfSelectWelcome(member);
+      await interaction.reply({
+        content: '**1. Cold join (ad)** — what DA-role joiners see:',
+        embeds: [cold.embed],
+        components: cold.components,
+        flags: MessageFlags.Ephemeral,
+      });
+      await interaction.followUp({
+        content: '**2. Self-select** — what non-DA joiners see (click a button):',
+        embeds: [self.embed],
+        components: self.components,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    let result;
+    switch (type) {
+      case 'cold':
+        result = getColdJoinWelcome(member);
+        break;
+      case 'self':
+        result = getSelfSelectWelcome(member);
+        break;
+      case 'customer':
+        result = getReturningCustomerWelcome(member);
+        break;
+      case 'prop':
+        result = getPropHuntWelcome(member);
+        break;
+      default:
+        result = getSelfSelectWelcome(member);
+    }
+
     await interaction.reply({
       content: `${member}`,
-      embeds: [welcomeEmbed],
-      components: [row],
+      embeds: [result.embed],
+      components: result.components,
       flags: MessageFlags.Ephemeral,
     });
   },

@@ -6,12 +6,15 @@ module.exports = {
   ROLES: {
     STAFF: 'Admin',           // Mentioned in ticket messages; can be highest role
     TICKET_ACCESS: 'Staff', // Role given access to ticket channels; must be below the bot's role
+    DA: 'DA',                 // Cold join from ads; assigned by invite
     NEW: 'New',
     VERIFIED: 'Verified',
     TRIAL: 'Trial',
     SUBSCRIBER: 'Subscriber',
   },
   CUSTOM_IDS: {
+    WELCOME_CUSTOMER: 'welcome-customer',
+    WELCOME_PROP: 'welcome-prop',
     BOOK_TICKET_BUTTON: 'book-ticket',
     CLOSE_TICKET_BUTTON: 'close-ticket',
     GIVEAWAY_ENTER_BUTTON: 'giveaway-enter',
