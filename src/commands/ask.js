@@ -10,7 +10,9 @@ const {
   buildLowConfidenceEmbed,
   buildFinancialAdviceEmbed,
   buildUnavailableEmbed,
+  buildAskActionRow,
 } = require('../utils/supportIndex');
+const askContext = require('../utils/askContext');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -39,12 +41,21 @@ module.exports = {
 
     const { results, confidence, importantTerms, openAIAnswer, citedResults } = await searchIndexes(question);
 
+    const row = buildAskActionRow();
+
     if (confidence === 'high') {
       await interaction.editReply({
         embeds: [buildHighConfidenceEmbed(question, results, importantTerms, openAIAnswer, citedResults)],
+        components: [row],
       });
     } else {
-      await interaction.editReply({ embeds: [buildLowConfidenceEmbed(question, results)] });
+      await interaction.editReply({
+        embeds: [buildLowConfidenceEmbed(question, results)],
+        components: [row],
+      });
     }
+
+    const msg = await interaction.fetchReply();
+    askContext.set(msg.id, { question, openAIAnswer: openAIAnswer || null });
   },
 };

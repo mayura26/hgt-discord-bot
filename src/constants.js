@@ -15,6 +15,9 @@ module.exports = {
     BOOK_TICKET_BUTTON: 'book-ticket',
     CLOSE_TICKET_BUTTON: 'close-ticket',
     GIVEAWAY_ENTER_BUTTON: 'giveaway-enter',
+    ASK_FOLLOWUP_BUTTON: 'ask-followup',
+    ASK_FOLLOWUP_MODAL:  'ask-followup-modal',
+    ASK_FOLLOWUP_INPUT:  'ask-followup-input',
   },
   COLORS: {
     PRIMARY: 0x2b65ec,

@@ -1,9 +1,9 @@
 'use strict';
 
 const MiniSearch = require('minisearch');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
-const { COLORS } = require('../constants');
+const { COLORS, CUSTOM_IDS } = require('../constants');
 
 // ---------------------------------------------------------------------------
 // Module-level state
@@ -448,10 +448,10 @@ function capDescription(text) {
  * @returns {EmbedBuilder}
  */
 function buildHighConfidenceEmbed(question, results, importantTerms = [], openAIAnswer = null, citedResults = null) {
-  let description = '';
+  let description = `**Q: ${question}**\n\n`;
 
   if (openAIAnswer) {
-    description = openAIAnswer + '\n\n';
+    description += openAIAnswer + '\n\n';
     const links = citedResults?.length ? citedResults : results.slice(0, 3);
     description += '**Relevant Links**\n';
     for (const r of links) description += `• [${r.title}](${r.url})\n`;
@@ -508,6 +508,7 @@ function buildLowConfidenceEmbed(question, results) {
   }
 
   let description =
+    `**Q: ${question}**\n\n` +
     "I wasn't able to find a precise match for your question. Could you provide more detail? " +
     'For example, mention the specific feature, platform, or step you\'re having trouble with.\n\n';
 
@@ -564,6 +565,116 @@ function buildUnavailableEmbed() {
 }
 
 // ---------------------------------------------------------------------------
+// Follow-up helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the action row with "Ask a follow-up" and "Raise a ticket" buttons.
+ * @returns {ActionRowBuilder}
+ */
+function buildAskActionRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(CUSTOM_IDS.ASK_FOLLOWUP_BUTTON)
+      .setLabel('Ask a follow-up')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(CUSTOM_IDS.BOOK_TICKET_BUTTON)
+      .setLabel('Raise a ticket')
+      .setStyle(ButtonStyle.Primary),
+  );
+}
+
+/**
+ * Answer a follow-up question using conversation history for OpenAI context.
+ * @param {string} originalQuestion
+ * @param {string|null} originalAnswer
+ * @param {string} followupQuestion
+ * @returns {Promise<{openAIAnswer: string|null, citedResults: object[]|null, results: object[]}|null>}
+ */
+async function answerFollowup(originalQuestion, originalAnswer, followupQuestion) {
+  const apiKey = config.openaiApiKey;
+
+  // Gather MiniSearch candidates for the follow-up topic
+  const candidates = [];
+  for (const sourceKey of ['public', 'portal']) {
+    const { index } = _state[sourceKey];
+    if (!index) continue;
+    for (const hit of index.search(followupQuestion, { limit: 8 })) candidates.push(hit);
+  }
+
+  if (!candidates.length && !apiKey) return null;
+
+  // Dedupe by id
+  const seen = new Map();
+  for (const h of candidates) {
+    if (!seen.has(h.id) || h.score > seen.get(h.id).score) seen.set(h.id, h);
+  }
+  const results = Array.from(seen.values()).sort((a, b) => b.score - a.score);
+
+  if (!apiKey) return { openAIAnswer: null, citedResults: null, results };
+
+  const context = results.slice(0, 6).map((c, i) =>
+    `[${i + 1}] Title: ${c.title} | Category: ${c.category}\n${truncateSnippet(c.content, 400)}`,
+  ).join('\n\n');
+
+  const messages = [
+    {
+      role: 'system',
+      content:
+        'You are a support assistant for Holy Grail Trading. ' +
+        'Answer the follow-up using ONLY the provided knowledge base articles. ' +
+        'Be concise (2-4 sentences). If nothing applies, respond: NO_MATCH. ' +
+        'End with: SOURCES: [comma-separated article numbers]',
+    },
+  ];
+  if (originalQuestion) {
+    messages.push({ role: 'user', content: `Original question: ${originalQuestion}` });
+  }
+  if (originalAnswer) {
+    messages.push({ role: 'assistant', content: originalAnswer });
+  }
+  messages.push({
+    role: 'user',
+    content: `Follow-up: ${followupQuestion}\n\nKnowledge base articles:\n${context}`,
+  });
+
+  let response;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 300, temperature: 0.2 }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+  } catch (err) {
+    console.error('[SupportIndex] OpenAI followup failed:', err.message);
+    return { openAIAnswer: null, citedResults: null, results };
+  }
+
+  if (!response.ok) return { openAIAnswer: null, citedResults: null, results };
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content?.trim() || '';
+  if (!text || text.startsWith('NO_MATCH')) return { openAIAnswer: null, citedResults: null, results };
+
+  const sourcesMatch = text.match(/SOURCES:\s*([\d,\s]+)/i);
+  const usedIndices = sourcesMatch
+    ? sourcesMatch[1].split(',').map(n => parseInt(n.trim(), 10) - 1).filter(n => !isNaN(n) && n >= 0)
+    : [0];
+
+  const answer = text.replace(/SOURCES:.*$/i, '').trim();
+  const citedResults = [...new Map(
+    usedIndices.map(i => results[i]).filter(Boolean).map(r => [r.url, r]),
+  ).values()];
+
+  return { openAIAnswer: answer, citedResults, results };
+}
+
+// ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
@@ -577,4 +688,6 @@ module.exports = {
   buildLowConfidenceEmbed,
   buildFinancialAdviceEmbed,
   buildUnavailableEmbed,
+  buildAskActionRow,
+  answerFollowup,
 };

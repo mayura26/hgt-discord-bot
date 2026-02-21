@@ -1,7 +1,14 @@
-const { Events, MessageFlags } = require('discord.js');
+const { Events, MessageFlags, ModalBuilder, ActionRowBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { CUSTOM_IDS } = require('../constants');
 const ticketManager = require('../utils/ticketManager');
 const db = require('../utils/database');
+const askContext = require('../utils/askContext');
+const {
+  answerFollowup,
+  buildHighConfidenceEmbed,
+  buildLowConfidenceEmbed,
+  buildAskActionRow,
+} = require('../utils/supportIndex');
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -52,6 +59,56 @@ module.exports = {
         } else {
           await interaction.editReply({ content: 'You are already entered in this giveaway!' });
         }
+        return;
+      }
+
+      if (interaction.customId === CUSTOM_IDS.ASK_FOLLOWUP_BUTTON) {
+        const modal = new ModalBuilder()
+          .setCustomId(`${CUSTOM_IDS.ASK_FOLLOWUP_MODAL}:${interaction.message.id}`)
+          .setTitle('Ask a follow-up')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId(CUSTOM_IDS.ASK_FOLLOWUP_INPUT)
+                .setLabel('Your follow-up question')
+                .setStyle(TextInputStyle.Paragraph)
+                .setMaxLength(500)
+                .setRequired(true),
+            ),
+          );
+        await interaction.showModal(modal);
+        return;
+      }
+    }
+
+    if (interaction.isModalSubmit()) {
+      if (interaction.customId.startsWith(CUSTOM_IDS.ASK_FOLLOWUP_MODAL + ':')) {
+        const messageId = interaction.customId.split(':')[1];
+        const ctx = askContext.get(messageId);
+        const followupQuestion = interaction.fields.getTextInputValue(CUSTOM_IDS.ASK_FOLLOWUP_INPUT).trim();
+
+        await interaction.deferReply();
+
+        const result = await answerFollowup(
+          ctx?.question || '',
+          ctx?.openAIAnswer || null,
+          followupQuestion,
+        );
+
+        const { openAIAnswer, citedResults, results } = result || {};
+        const row = buildAskActionRow();
+
+        let embed;
+        if (openAIAnswer) {
+          embed = buildHighConfidenceEmbed(followupQuestion, results || [], [], openAIAnswer, citedResults);
+        } else {
+          embed = buildLowConfidenceEmbed(followupQuestion, results || []);
+        }
+
+        await interaction.editReply({ embeds: [embed], components: [row] });
+
+        const reply = await interaction.fetchReply();
+        askContext.set(reply.id, { question: followupQuestion, openAIAnswer: openAIAnswer || null });
         return;
       }
     }
