@@ -96,6 +96,55 @@ function truncateSnippet(content, max = 300) {
   return content.slice(0, max) + '…';
 }
 
+const STOPWORDS = new Set([
+  'how','do','i','to','the','a','is','are','what','can','my','me','about',
+  'in','for','of','and','or','it','on','at','an','with','this','that','get',
+  'use','using','does','will','should','would','could','need','want',
+]);
+
+/**
+ * Strip stopwords from a query and return meaningful lowercase terms.
+ * @param {string} query
+ * @returns {string[]}
+ */
+function extractImportantTerms(query) {
+  return query
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 1 && !STOPWORDS.has(t));
+}
+
+/**
+ * Find the sentence(s) containing the most query terms and return a snippet.
+ * Falls back to truncateSnippet if no terms are provided.
+ * @param {string} content
+ * @param {string[]} terms
+ * @param {number} max
+ * @returns {string}
+ */
+function extractRelevantSnippet(content, terms, max = 300) {
+  if (!content) return '';
+  if (!terms.length || content.length <= max) return truncateSnippet(content, max);
+
+  const sentences = content.split(/(?<=[.!?])\s+/);
+  let best = { score: -1, index: 0 };
+  const lower = terms.map(t => t.toLowerCase());
+
+  sentences.forEach((s, i) => {
+    const sl = s.toLowerCase();
+    const score = lower.filter(t => sl.includes(t)).length;
+    if (score > best.score) best = { score, index: i };
+  });
+
+  let snippet = sentences[best.index].trim();
+  if (best.index + 1 < sentences.length && snippet.length < max * 0.6) {
+    snippet += ' ' + sentences[best.index + 1].trim();
+  }
+
+  return truncateSnippet(snippet, max);
+}
+
 // ---------------------------------------------------------------------------
 // Core fetch logic
 // ---------------------------------------------------------------------------
@@ -190,10 +239,11 @@ function isAvailable() {
 /**
  * Search all loaded indexes and return merged, ranked results.
  * @param {string} query
- * @returns {{ results: object[], confidence: 'high'|'low' }}
+ * @returns {{ results: object[], confidence: 'high'|'low', importantTerms: string[] }}
  */
 function searchIndexes(query) {
   const threshold = config.supportConfidenceThreshold;
+  const importantTerms = extractImportantTerms(query);
   const combined = [];
 
   for (const sourceKey of ['public', 'portal']) {
@@ -201,9 +251,7 @@ function searchIndexes(query) {
     if (!index) continue;
 
     const hits = index.search(query, { limit: 5 });
-    for (const hit of hits) {
-      combined.push({ ...hit, _source: sourceKey });
-    }
+    for (const hit of hits) combined.push({ ...hit, _source: sourceKey });
   }
 
   // De-duplicate by id — keep higher-scored copy
@@ -213,26 +261,42 @@ function searchIndexes(query) {
     if (!existing || hit.score > existing.score) seen.set(hit.id, hit);
   }
 
-  let results = Array.from(seen.values()).sort((a, b) => b.score - a.score);
+  let results = Array.from(seen.values());
 
-  // Portal preference: if #2 is portal + Support/Setup category + score ≥ 80% of #1, swap
+  // Compute term-overlap adjusted score
+  for (const r of results) {
+    const text = (r.title + ' ' + (r.tags || '') + ' ' + r.content).toLowerCase();
+    const matched = importantTerms.length
+      ? importantTerms.filter(t => text.includes(t)).length
+      : 0;
+    r._overlap = importantTerms.length ? matched / importantTerms.length : 1;
+    r._adjustedScore = r.score * r._overlap;
+  }
+
+  // Filter out zero-overlap results when we have 2+ important terms
+  if (importantTerms.length >= 2) {
+    results = results.filter(r => r._overlap > 0);
+  }
+
+  results.sort((a, b) => b._adjustedScore - a._adjustedScore);
+
+  // Portal preference: if #2 is portal + Support/Setup category + adj score ≥ 80% of #1, promote
   if (results.length >= 2) {
-    const top = results[0];
-    const second = results[1];
+    const [top, second] = results;
     if (
       second._source === 'portal' &&
       /support|setup/i.test(second.category) &&
-      second.score >= top.score * 0.8
+      second._adjustedScore >= top._adjustedScore * 0.8
     ) {
       results = [second, top, ...results.slice(2)];
     }
   }
 
-  const topScore = results.length > 0 ? results[0].score : 0;
-  const strongHitsCount = results.filter(r => r.score >= threshold * 0.6).length;
-  const confidence = topScore >= threshold && strongHitsCount >= 2 ? 'high' : 'low';
+  const topScore = results.length ? results[0]._adjustedScore : 0;
+  const strongCount = results.filter(r => r._adjustedScore >= threshold * 0.6).length;
+  const confidence = topScore >= threshold && strongCount >= 2 ? 'high' : 'low';
 
-  return { results, confidence };
+  return { results, confidence, importantTerms };
 }
 
 /**
@@ -285,23 +349,34 @@ function capDescription(text) {
  * Build a high-confidence answer embed showing snippets from top results.
  * @param {string} question
  * @param {object[]} results
+ * @param {string[]} importantTerms
  * @returns {EmbedBuilder}
  */
-function buildHighConfidenceEmbed(question, results) {
+function buildHighConfidenceEmbed(question, results, importantTerms = []) {
   const top = results.slice(0, 2);
-  const linkResults = results.slice(0, 3);
+
+  // Deduplicate link candidates by URL
+  const linkResults = [];
+  const seenUrls = new Set();
+  for (const r of results) {
+    if (!seenUrls.has(r.url)) {
+      seenUrls.add(r.url);
+      linkResults.push(r);
+    }
+    if (linkResults.length === 3) break;
+  }
 
   let description = '';
 
   for (const result of top) {
-    const snippet = truncateSnippet(result.content);
+    const snippet = extractRelevantSnippet(result.content, importantTerms);
     description += `**${result.title}**\n${snippet}\n\n`;
   }
 
   if (linkResults.length > 0) {
     description += '**Relevant Links**\n';
-    for (const result of linkResults) {
-      description += `• [${result.title}](${result.url})\n`;
+    for (const r of linkResults) {
+      description += `• [${r.title}](${r.url})\n`;
     }
   }
 
@@ -319,7 +394,16 @@ function buildHighConfidenceEmbed(question, results) {
  * @returns {EmbedBuilder}
  */
 function buildLowConfidenceEmbed(question, results) {
-  const linkResults = results.slice(0, 3);
+  // Deduplicate link candidates by URL
+  const linkResults = [];
+  const seenUrls = new Set();
+  for (const r of results) {
+    if (!seenUrls.has(r.url)) {
+      seenUrls.add(r.url);
+      linkResults.push(r);
+    }
+    if (linkResults.length === 3) break;
+  }
 
   let description =
     "I wasn't able to find a precise match for your question. Could you provide more detail? " +
@@ -327,8 +411,8 @@ function buildLowConfidenceEmbed(question, results) {
 
   if (linkResults.length > 0) {
     description += '**Related Resources**\n';
-    for (const result of linkResults) {
-      description += `• [${result.title}](${result.url})\n`;
+    for (const r of linkResults) {
+      description += `• [${r.title}](${r.url})\n`;
     }
   }
 
