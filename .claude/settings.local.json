@@ -10,7 +10,17 @@
       "Bash(node -e:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npm run deploy:*)"
+      "Bash(npm run deploy:*)",
+      "Bash(cd:*)",
+      "Bash(git -C \"D:/VSCode Projects/hgt-discord-bot\" ls-files)",
+      "WebFetch(domain:holygrailtrading.io)",
+      "WebFetch(domain:portal.holygrailtrading.io)",
+      "WebFetch(domain:lucaong.github.io)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebSearch",
+      "Bash(node --check:*)",
+      "Bash(node deploy-commands.js:*)",
+      "Bash(git push:*)"
     ]
   }
 }

@@ -13,4 +13,4 @@ RUN mkdir -p /data
 
 ENV DB_PATH=/data
 
-CMD ["node", "src/index.js"]
+CMD ["sh", "-c", "node deploy-commands.js && node src/index.js"]

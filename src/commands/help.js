@@ -12,6 +12,7 @@ const ADMIN_COMMANDS =
   '**/add-knowledge**\nAdd a custom knowledge entry to the /ask knowledge base.\n\n' +
   '**/delete-knowledge**\nDelete a custom knowledge entry from the /ask knowledge base.\n\n' +
   '**/show-knowledge**\nList all custom knowledge entries in the /ask knowledge base.\n\n' +
+  '**/reinit-knowledge**\nReload the support indexes from remote sources.\n\n' +
   '**/giveaway**\nManage giveaways.\n\n' +
   '**/setupuser**\nSet up a user as a customer (private channel + role).\n\n' +
   '**/testwelcome**\nSimulates the welcome message for testing.';

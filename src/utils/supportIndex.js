@@ -314,6 +314,22 @@ async function initSupportIndexes() {
 }
 
 /**
+ * Force reload both support indexes from remote sources (clears ETag to bypass cache).
+ * @returns {Promise<{ publicLoaded: boolean, publicCount: number, portalLoaded: boolean, portalCount: number }>}
+ */
+async function reinitSupportIndexes() {
+  _state.public.etag = null;
+  _state.portal.etag = null;
+  await Promise.allSettled([fetchSource('public'), fetchSource('portal')]);
+  return {
+    publicLoaded: _state.public.index !== null,
+    publicCount: _state.public.items?.length ?? 0,
+    portalLoaded: _state.portal.index !== null,
+    portalCount: _state.portal.items?.length ?? 0,
+  };
+}
+
+/**
  * True if at least one source index has been loaded successfully.
  * @returns {boolean}
  */
@@ -743,6 +759,7 @@ async function answerFollowup(originalQuestion, originalAnswer, followupQuestion
 
 module.exports = {
   initSupportIndexes,
+  reinitSupportIndexes,
   isAvailable,
   searchIndexes,
   isFinancialAdviceQuery,

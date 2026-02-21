@@ -27,7 +27,7 @@ function getColdJoinWelcome(member) {
         `• #general – open discussion and questions from the community\n\n` +
         `There's no rush and no pressure. Read, scroll, and see if this aligns with how you think about trading.\n\n` +
         `If you ever want help or clarity:\n` +
-        `Just post a question in #general or use **/ask** — or click below to **book a ticket** if you'd prefer to talk to staff directly.`,
+        `Just post a question in #landing-spot, #general or use **/ask** — or click below to **book a ticket** if you'd prefer to talk to staff directly.`,
     )
     .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
     .setTimestamp()
@@ -90,7 +90,7 @@ function getPropHuntWelcome(member) {
         `• #general – open discussion and questions from the community\n\n` +
         `There's no rush. Read, scroll, and see if this aligns with how you think about trading.\n\n` +
         `If you want help or clarity:\n` +
-        `Post a question in #general or use **/ask** — or click below to **book a ticket** to talk to staff directly.`,
+        `Post a question in #landing-spot, #general or use **/ask** — or click below to **book a ticket** to talk to staff directly.`,
     )
     .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
     .setTimestamp()
