@@ -37,10 +37,12 @@ module.exports = {
       return interaction.editReply({ embeds: [buildFinancialAdviceEmbed(findDisclaimerUrl())] });
     }
 
-    const { results, confidence, importantTerms } = searchIndexes(question);
+    const { results, confidence, importantTerms, openAIAnswer, citedResults } = await searchIndexes(question);
 
     if (confidence === 'high') {
-      await interaction.editReply({ embeds: [buildHighConfidenceEmbed(question, results, importantTerms)] });
+      await interaction.editReply({
+        embeds: [buildHighConfidenceEmbed(question, results, importantTerms, openAIAnswer, citedResults)],
+      });
     } else {
       await interaction.editReply({ embeds: [buildLowConfidenceEmbed(question, results)] });
     }

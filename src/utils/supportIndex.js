@@ -146,6 +146,84 @@ function extractRelevantSnippet(content, terms, max = 300) {
 }
 
 // ---------------------------------------------------------------------------
+// OpenAI re-ranking layer
+// ---------------------------------------------------------------------------
+
+/**
+ * Send MiniSearch candidates to OpenAI for re-ranking and answer synthesis.
+ * Returns { answer, citedResults } or null on NO_MATCH / error / missing key.
+ * @param {string} question
+ * @param {object[]} candidates
+ * @returns {Promise<{answer: string, citedResults: object[]}|null>}
+ */
+async function askOpenAI(question, candidates) {
+  const apiKey = config.openaiApiKey;
+  if (!apiKey || !candidates.length) return null;
+
+  const context = candidates.slice(0, 6).map((c, i) =>
+    `[${i + 1}] Title: ${c.title} | Category: ${c.category}\n${truncateSnippet(c.content, 400)}`,
+  ).join('\n\n');
+
+  const messages = [
+    {
+      role: 'system',
+      content:
+        'You are a support assistant for Holy Grail Trading, a prop trading education and tooling company. ' +
+        'Answer the user\'s question using ONLY the provided knowledge base articles. ' +
+        'Be concise (2-4 sentences). ' +
+        'If none of the articles answer the question, respond with exactly: NO_MATCH. ' +
+        'Do not invent information not in the articles. ' +
+        'End your response with: SOURCES: [comma-separated article numbers used, e.g. 1,3]',
+    },
+    {
+      role: 'user',
+      content: `Question: ${question}\n\nKnowledge base articles:\n${context}`,
+    },
+  ];
+
+  let response;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 300, temperature: 0.2 }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+  } catch (err) {
+    console.error('[SupportIndex] OpenAI request failed:', err.message);
+    return null;
+  }
+
+  if (!response.ok) {
+    console.error(`[SupportIndex] OpenAI API error: ${response.status}`);
+    return null;
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content?.trim() || '';
+
+  if (!text || text.startsWith('NO_MATCH')) return null;
+
+  const sourcesMatch = text.match(/SOURCES:\s*([\d,\s]+)/i);
+  const usedIndices = sourcesMatch
+    ? sourcesMatch[1].split(',').map(n => parseInt(n.trim(), 10) - 1).filter(n => !isNaN(n) && n >= 0)
+    : [0];
+
+  const answer = text.replace(/SOURCES:.*$/i, '').trim();
+  const citedResults = [...new Map(
+    usedIndices.map(i => candidates[i]).filter(Boolean).map(r => [r.url, r]),
+  ).values()];
+
+  return { answer, citedResults };
+}
+
+// ---------------------------------------------------------------------------
 // Core fetch logic
 // ---------------------------------------------------------------------------
 
@@ -239,9 +317,9 @@ function isAvailable() {
 /**
  * Search all loaded indexes and return merged, ranked results.
  * @param {string} query
- * @returns {{ results: object[], confidence: 'high'|'low', importantTerms: string[] }}
+ * @returns {Promise<{ results: object[], confidence: 'high'|'low', importantTerms: string[], openAIAnswer: string|null, citedResults: object[]|null }>}
  */
-function searchIndexes(query) {
+async function searchIndexes(query) {
   const threshold = config.supportConfidenceThreshold;
   const importantTerms = extractImportantTerms(query);
   const combined = [];
@@ -250,7 +328,7 @@ function searchIndexes(query) {
     const { index } = _state[sourceKey];
     if (!index) continue;
 
-    const hits = index.search(query, { limit: 5 });
+    const hits = index.search(query, { limit: 8 });
     for (const hit of hits) combined.push({ ...hit, _source: sourceKey });
   }
 
@@ -292,11 +370,25 @@ function searchIndexes(query) {
     }
   }
 
+  // OpenAI re-ranking layer
+  const openAIResult = await askOpenAI(query, results.slice(0, 6));
+
+  if (openAIResult) {
+    return {
+      results,
+      confidence: 'high',
+      importantTerms,
+      openAIAnswer: openAIResult.answer,
+      citedResults: openAIResult.citedResults,
+    };
+  }
+
+  // Fallback: keyword confidence
   const topScore = results.length ? results[0]._adjustedScore : 0;
   const strongCount = results.filter(r => r._adjustedScore >= threshold * 0.6).length;
   const confidence = topScore >= threshold && strongCount >= 2 ? 'high' : 'low';
 
-  return { results, confidence, importantTerms };
+  return { results, confidence, importantTerms, openAIAnswer: null, citedResults: null };
 }
 
 /**
@@ -347,36 +439,46 @@ function capDescription(text) {
 
 /**
  * Build a high-confidence answer embed showing snippets from top results.
+ * When openAIAnswer is provided, it is used as the description body instead of raw snippets.
  * @param {string} question
  * @param {object[]} results
  * @param {string[]} importantTerms
+ * @param {string|null} openAIAnswer
+ * @param {object[]|null} citedResults
  * @returns {EmbedBuilder}
  */
-function buildHighConfidenceEmbed(question, results, importantTerms = []) {
-  const top = results.slice(0, 2);
-
-  // Deduplicate link candidates by URL
-  const linkResults = [];
-  const seenUrls = new Set();
-  for (const r of results) {
-    if (!seenUrls.has(r.url)) {
-      seenUrls.add(r.url);
-      linkResults.push(r);
-    }
-    if (linkResults.length === 3) break;
-  }
-
+function buildHighConfidenceEmbed(question, results, importantTerms = [], openAIAnswer = null, citedResults = null) {
   let description = '';
 
-  for (const result of top) {
-    const snippet = extractRelevantSnippet(result.content, importantTerms);
-    description += `**${result.title}**\n${snippet}\n\n`;
-  }
-
-  if (linkResults.length > 0) {
+  if (openAIAnswer) {
+    description = openAIAnswer + '\n\n';
+    const links = citedResults?.length ? citedResults : results.slice(0, 3);
     description += '**Relevant Links**\n';
-    for (const r of linkResults) {
-      description += `• [${r.title}](${r.url})\n`;
+    for (const r of links) description += `• [${r.title}](${r.url})\n`;
+  } else {
+    const top = results.slice(0, 2);
+
+    // Deduplicate link candidates by URL
+    const linkResults = [];
+    const seenUrls = new Set();
+    for (const r of results) {
+      if (!seenUrls.has(r.url)) {
+        seenUrls.add(r.url);
+        linkResults.push(r);
+      }
+      if (linkResults.length === 3) break;
+    }
+
+    for (const result of top) {
+      const snippet = extractRelevantSnippet(result.content, importantTerms);
+      description += `**${result.title}**\n${snippet}\n\n`;
+    }
+
+    if (linkResults.length > 0) {
+      description += '**Relevant Links**\n';
+      for (const r of linkResults) {
+        description += `• [${r.title}](${r.url})\n`;
+      }
     }
   }
 
