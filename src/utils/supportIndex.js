@@ -100,6 +100,7 @@ const STOPWORDS = new Set([
   'how','do','i','to','the','a','is','are','what','can','my','me','about',
   'in','for','of','and','or','it','on','at','an','with','this','that','get',
   'use','using','does','will','should','would','could','need','want',
+  'have','here',
 ]);
 
 /**
@@ -381,10 +382,7 @@ async function searchIndexes(query) {
     return { results, confidence: 'none', importantTerms, openAIAnswer: null, citedResults: null };
   }
   if (topOverlap < 0.7) {
-    const topScore = results.length ? results[0]._adjustedScore : 0;
-    const strongCount = results.filter(r => r._adjustedScore >= threshold * 0.6).length;
-    const confidence = topScore >= threshold && strongCount >= 2 ? 'high' : 'low';
-    return { results, confidence, importantTerms, openAIAnswer: null, citedResults: null };
+    return { results, confidence: 'low', importantTerms, openAIAnswer: null, citedResults: null };
   }
 
   // OpenAI re-ranking layer
