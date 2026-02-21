@@ -171,8 +171,12 @@ async function askOpenAI(question, candidates) {
         'You are a support assistant for Holy Grail Trading, a prop trading education and tooling company. ' +
         'Answer the user\'s question using ONLY the provided knowledge base articles. ' +
         'Be concise (2-4 sentences). ' +
-        'If none of the articles answer the question, respond with exactly: NO_MATCH. ' +
-        'Do not invent information not in the articles. ' +
+        'You MUST respond with exactly NO_MATCH (nothing else) if ANY of these apply: ' +
+        '(1) the question is not specifically about Holy Grail Trading products, platform, bots, indicators, strategies, or account setup; ' +
+        '(2) the question asks about a specific person, their performance, or their reputation; ' +
+        '(3) the question is about food, personal lifestyle, or anything unrelated to the HGT platform; ' +
+        '(4) the provided articles do not directly address the question asked. ' +
+        'Do not invent or infer information not explicitly stated in the articles. ' +
         'End your response with: SOURCES: [comma-separated article numbers used, e.g. 1,3]',
     },
     {
@@ -368,6 +372,15 @@ async function searchIndexes(query) {
     ) {
       results = [second, top, ...results.slice(2)];
     }
+  }
+
+  // Only call OpenAI when there is a meaningful topical overlap
+  const topOverlap = results.length ? results[0]._overlap : 0;
+  if (topOverlap < 0.5) {
+    const topScore = results.length ? results[0]._adjustedScore : 0;
+    const strongCount = results.filter(r => r._adjustedScore >= threshold * 0.6).length;
+    const confidence = topScore >= threshold && strongCount >= 2 ? 'high' : 'low';
+    return { results, confidence, importantTerms, openAIAnswer: null, citedResults: null };
   }
 
   // OpenAI re-ranking layer
