@@ -4,6 +4,7 @@ const MiniSearch = require('minisearch');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
 const { COLORS, CUSTOM_IDS } = require('../constants');
+const { getAllKnowledge } = require('./database');
 
 // ---------------------------------------------------------------------------
 // Module-level state
@@ -161,7 +162,7 @@ async function askOpenAI(question, candidates) {
   const apiKey = config.openaiApiKey;
   if (!apiKey || !candidates.length) return null;
 
-  const context = candidates.slice(0, 6).map((c, i) =>
+  const context = candidates.slice(0, 10).map((c, i) =>
     `[${i + 1}] Title: ${c.title} | Category: ${c.category}\n${truncateSnippet(c.content, 400)}`,
   ).join('\n\n');
 
@@ -223,7 +224,7 @@ async function askOpenAI(question, candidates) {
 
   const answer = text.replace(/SOURCES:.*$/i, '').trim();
   const citedResults = [...new Map(
-    usedIndices.map(i => candidates[i]).filter(Boolean).map(r => [r.url, r]),
+    usedIndices.map(i => candidates[i]).filter(Boolean).filter(r => r.url).map(r => [r.url, r]),
   ).values()];
 
   return { answer, citedResults };
@@ -380,8 +381,17 @@ async function searchIndexes(query) {
     return { results, confidence: 'none', importantTerms, openAIAnswer: null, citedResults: null };
   }
 
+  // Prepend custom admin knowledge entries as priority candidates
+  const customCandidates = getAllKnowledge().map(e => ({
+    id: `custom_${e.id}`,
+    title: e.topic,
+    category: 'Admin Knowledge',
+    content: e.content,
+    url: '',
+  }));
+
   // Always call OpenAI — it decides whether the question is answerable from the articles
-  const openAIResult = await askOpenAI(query, results.slice(0, 6));
+  const openAIResult = await askOpenAI(query, [...customCandidates, ...results.slice(0, 6)]);
 
   if (openAIResult) {
     return {
@@ -657,7 +667,17 @@ async function answerFollowup(originalQuestion, originalAnswer, followupQuestion
 
   if (!apiKey) return { openAIAnswer: null, citedResults: null, results };
 
-  const context = results.slice(0, 6).map((c, i) =>
+  // Prepend custom admin knowledge entries as priority candidates
+  const customCandidates = getAllKnowledge().map(e => ({
+    id: `custom_${e.id}`,
+    title: e.topic,
+    category: 'Admin Knowledge',
+    content: e.content,
+    url: '',
+  }));
+  const allCandidates = [...customCandidates, ...results];
+
+  const context = allCandidates.slice(0, 8).map((c, i) =>
     `[${i + 1}] Title: ${c.title} | Category: ${c.category}\n${truncateSnippet(c.content, 400)}`,
   ).join('\n\n');
 
@@ -711,7 +731,7 @@ async function answerFollowup(originalQuestion, originalAnswer, followupQuestion
 
   const answer = text.replace(/SOURCES:.*$/i, '').trim();
   const citedResults = [...new Map(
-    usedIndices.map(i => results[i]).filter(Boolean).map(r => [r.url, r]),
+    usedIndices.map(i => allCandidates[i]).filter(Boolean).filter(r => r.url).map(r => [r.url, r]),
   ).values()];
 
   return { openAIAnswer: answer, citedResults, results };

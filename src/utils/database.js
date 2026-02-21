@@ -30,6 +30,14 @@ db.exec(`
     UNIQUE(giveaway_id, user_id),
     FOREIGN KEY (giveaway_id) REFERENCES giveaways(id)
   );
+
+  CREATE TABLE IF NOT EXISTS knowledge (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    topic TEXT NOT NULL,
+    content TEXT NOT NULL,
+    added_by TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 function getActiveGiveaway() {
@@ -67,10 +75,34 @@ function endGiveaway(giveawayId, winnerId) {
   stmt.run(winnerId || null, giveawayId);
 }
 
+function addKnowledge(topic, content, addedBy) {
+  const result = db.prepare(
+    'INSERT INTO knowledge (topic, content, added_by) VALUES (?, ?, ?)',
+  ).run(topic, content, addedBy);
+  return db.prepare('SELECT * FROM knowledge WHERE id = ?').get(result.lastInsertRowid);
+}
+
+function getAllKnowledge() {
+  return db.prepare('SELECT * FROM knowledge ORDER BY id ASC').all();
+}
+
+function getKnowledgeById(id) {
+  return db.prepare('SELECT * FROM knowledge WHERE id = ?').get(id);
+}
+
+function deleteKnowledge(id) {
+  const result = db.prepare('DELETE FROM knowledge WHERE id = ?').run(id);
+  return result.changes;
+}
+
 module.exports = {
   getActiveGiveaway,
   createGiveaway,
   addEntry,
   getEntries,
   endGiveaway,
+  addKnowledge,
+  getAllKnowledge,
+  getKnowledgeById,
+  deleteKnowledge,
 };
