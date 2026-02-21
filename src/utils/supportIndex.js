@@ -349,7 +349,7 @@ async function searchIndexes(query) {
   for (const r of results) {
     const text = (r.title + ' ' + (r.tags || '') + ' ' + r.content).toLowerCase();
     const matched = importantTerms.length
-      ? importantTerms.filter(t => text.includes(t)).length
+      ? importantTerms.filter(t => new RegExp('\\b' + t + '\\b').test(text)).length
       : 0;
     r._overlap = importantTerms.length ? matched / importantTerms.length : 1;
     r._adjustedScore = r.score * r._overlap;
@@ -376,7 +376,11 @@ async function searchIndexes(query) {
 
   // Only call OpenAI when there is a meaningful topical overlap
   const topOverlap = results.length ? results[0]._overlap : 0;
-  if (topOverlap < 0.5) {
+  if (topOverlap < 0.3) {
+    // Clearly off-topic — don't pretend we found something relevant
+    return { results, confidence: 'none', importantTerms, openAIAnswer: null, citedResults: null };
+  }
+  if (topOverlap < 0.7) {
     const topScore = results.length ? results[0]._adjustedScore : 0;
     const strongCount = results.filter(r => r._adjustedScore >= threshold * 0.6).length;
     const confidence = topScore >= threshold && strongCount >= 2 ? 'high' : 'low';
@@ -535,6 +539,43 @@ function buildLowConfidenceEmbed(question, results) {
   return new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setTitle('Can you tell me more?')
+    .setDescription(capDescription(description.trim()))
+    .setFooter(FOOTER);
+}
+
+/**
+ * Build the "not in my knowledge base" embed for clearly off-topic queries.
+ * Shows top keyword results as a safety net but does not assert they are relevant.
+ * @param {string} question
+ * @param {object[]} results
+ * @returns {EmbedBuilder}
+ */
+function buildNoConfidenceEmbed(question, results) {
+  const linkResults = [];
+  const seenUrls = new Set();
+  for (const r of results) {
+    if (!seenUrls.has(r.url)) {
+      seenUrls.add(r.url);
+      linkResults.push(r);
+    }
+    if (linkResults.length === 3) break;
+  }
+
+  let description =
+    `**Q: ${question}**\n\n` +
+    "That doesn't appear to be covered in my knowledge base. " +
+    'If you had a question about HGT tools or strategies, try rephrasing with more specific terms.\n\n';
+
+  if (linkResults.length > 0) {
+    description += '**Some articles that might be related — though I\'m not certain they apply:**\n';
+    for (const r of linkResults) {
+      description += `• [${r.title}](${r.url})\n`;
+    }
+  }
+
+  return new EmbedBuilder()
+    .setColor(COLORS.PRIMARY)
+    .setTitle("I'm not sure about that one")
     .setDescription(capDescription(description.trim()))
     .setFooter(FOOTER);
 }
@@ -699,6 +740,7 @@ module.exports = {
   findDisclaimerUrl,
   buildHighConfidenceEmbed,
   buildLowConfidenceEmbed,
+  buildNoConfidenceEmbed,
   buildFinancialAdviceEmbed,
   buildUnavailableEmbed,
   buildAskActionRow,

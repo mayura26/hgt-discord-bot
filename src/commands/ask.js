@@ -8,6 +8,7 @@ const {
   searchIndexes,
   buildHighConfidenceEmbed,
   buildLowConfidenceEmbed,
+  buildNoConfidenceEmbed,
   buildFinancialAdviceEmbed,
   buildUnavailableEmbed,
   buildAskActionRow,
@@ -46,6 +47,11 @@ module.exports = {
     if (confidence === 'high') {
       await interaction.editReply({
         embeds: [buildHighConfidenceEmbed(question, results, importantTerms, openAIAnswer, citedResults)],
+        components: [row],
+      });
+    } else if (confidence === 'none') {
+      await interaction.editReply({
+        embeds: [buildNoConfidenceEmbed(question, results)],
         components: [row],
       });
     } else {
