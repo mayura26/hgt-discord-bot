@@ -162,10 +162,15 @@ function extractRelevantSnippet(content, terms, max = 300) {
       }, []).filter(Boolean)
     : content.split(/(?<=[.!?])\s+/);
 
+  const querySuggestsSizing = lower.some(t =>
+    t === 'contracts' || t === 'contract' || t === 'sizing' || t === 'many' || t === 'number');
+
   let best = { score: -1, index: 0 };
   segments.forEach((s, i) => {
     const sl = s.toLowerCase();
-    const score = lower.filter(t => sl.includes(t)).length;
+    let score = lower.filter(t => sl.includes(t)).length;
+    // Portal JSON uses "## Contract Sizing" for recommended sizes; user often says "contracts" (no match). Boost so that section wins over Overview.
+    if (querySuggestsSizing && /contract\s*sizing|##\s*sizing/.test(sl)) score += 2;
     if (score > best.score) best = { score, index: i };
   });
 
