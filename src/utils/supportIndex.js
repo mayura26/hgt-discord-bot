@@ -56,6 +56,8 @@ function buildIndex() {
 
 /**
  * Normalize a raw item from the JSON index into a flat, indexable document.
+ * Portal chunks may include details, steps, bestFor etc. — we fold those into content
+ * so they are searchable and included in snippets sent to the model.
  * @param {object} rawItem
  * @param {string} baseUrl
  * @returns {object}
@@ -66,12 +68,25 @@ function normalizeItem(rawItem, baseUrl) {
 
   const tags = Array.isArray(rawItem.tags) ? rawItem.tags.join(' ') : (rawItem.tags || '');
 
+  let content = rawItem.content || rawItem.excerpt || rawItem.body || '';
+
+  // Enrich with structured fields so they're indexable and appear in snippets
+  if (rawItem.bestFor) content += `\n\nBest for: ${rawItem.bestFor}.`;
+  if (Array.isArray(rawItem.details) && rawItem.details.length) {
+    const detailLines = rawItem.details.map(d => `${d.label}: ${d.value}`).join('. ');
+    content += `\n\n${detailLines}.`;
+  }
+  if (Array.isArray(rawItem.steps) && rawItem.steps.length) {
+    const stepSummaries = rawItem.steps.map(s => s.title && typeof s.title === 'string' ? s.title : '').filter(Boolean);
+    if (stepSummaries.length) content += `\n\nSteps: ${stepSummaries.join('. ')}.`;
+  }
+
   return {
     id:       rawItem.id || rawItem.slug || rawUrl,
     title:    rawItem.title    || '',
     category: rawItem.category || '',
     tags,
-    content:  rawItem.content  || rawItem.excerpt || rawItem.body || '',
+    content:  content.trim(),
     url:      absoluteUrl,
   };
 }
@@ -118,7 +133,9 @@ function extractImportantTerms(query) {
 }
 
 /**
- * Find the sentence(s) containing the most query terms and return a snippet.
+ * Find the segment(s) containing the most query terms and return a snippet.
+ * Splits on markdown sections (## ) and sentence boundaries so strategy chunks
+ * (e.g. "## Contract Sizing" with 1 SIL, 2 SIL, 3 SIL) are kept together.
  * Falls back to truncateSnippet if no terms are provided.
  * @param {string} content
  * @param {string[]} terms
@@ -129,19 +146,32 @@ function extractRelevantSnippet(content, terms, max = 300) {
   if (!content) return '';
   if (!terms.length || content.length <= max) return truncateSnippet(content, max);
 
-  const sentences = content.split(/(?<=[.!?])\s+/);
-  let best = { score: -1, index: 0 };
   const lower = terms.map(t => t.toLowerCase());
 
-  sentences.forEach((s, i) => {
+  // Prefer markdown sections (## Header) so "Contract Sizing" / "Risk-Reward" blocks stay together
+  const sectionSplit = /(\n##\s+[^\n]+)/;
+  const parts = content.split(sectionSplit).filter(Boolean);
+  const hasSections = parts.some(p => /^\n##\s+/.test(p));
+
+  const segments = hasSections
+    ? parts.reduce((acc, p) => {
+        if (/^\n##\s+/.test(p)) acc.push(p.trim());
+        else if (acc.length) acc[acc.length - 1] += p;
+        else acc.push(p.trim());
+        return acc;
+      }, []).filter(Boolean)
+    : content.split(/(?<=[.!?])\s+/);
+
+  let best = { score: -1, index: 0 };
+  segments.forEach((s, i) => {
     const sl = s.toLowerCase();
     const score = lower.filter(t => sl.includes(t)).length;
     if (score > best.score) best = { score, index: i };
   });
 
-  let snippet = sentences[best.index].trim();
-  if (best.index + 1 < sentences.length && snippet.length < max * 0.6) {
-    snippet += ' ' + sentences[best.index + 1].trim();
+  let snippet = segments[best.index].trim();
+  if (best.index + 1 < segments.length && snippet.length < max * 0.6) {
+    snippet += '\n\n' + segments[best.index + 1].trim();
   }
 
   return truncateSnippet(snippet, max);
@@ -156,15 +186,20 @@ function extractRelevantSnippet(content, terms, max = 300) {
  * Returns { answer, citedResults } or null on NO_MATCH / error / missing key.
  * @param {string} question
  * @param {object[]} candidates
+ * @param {string[]} [importantTerms] - optional terms from the query; when provided, snippets are chosen by relevance instead of doc order
  * @returns {Promise<{answer: string, citedResults: object[]}|null>}
  */
-async function askOpenAI(question, candidates) {
+async function askOpenAI(question, candidates, importantTerms = []) {
   const apiKey = config.openaiApiKey;
   if (!apiKey || !candidates.length) return null;
 
-  const context = candidates.slice(0, 10).map((c, i) =>
-    `[${i + 1}] Title: ${c.title} | Category: ${c.category}\n${truncateSnippet(c.content, 400)}`,
-  ).join('\n\n');
+  const snippetLen = 550;
+  const context = candidates.slice(0, 10).map((c, i) => {
+    const snippet = importantTerms.length
+      ? extractRelevantSnippet(c.content, importantTerms, snippetLen)
+      : truncateSnippet(c.content, snippetLen);
+    return `[${i + 1}] Title: ${c.title} | Category: ${c.category}\n${snippet}`;
+  }).join('\n\n');
 
   const messages = [
     {
@@ -407,7 +442,7 @@ async function searchIndexes(query) {
   }));
 
   // Always call OpenAI — it decides whether the question is answerable from the articles
-  const openAIResult = await askOpenAI(query, [...customCandidates, ...results.slice(0, 6)]);
+  const openAIResult = await askOpenAI(query, [...customCandidates, ...results.slice(0, 6)], importantTerms);
 
   if (openAIResult) {
     return {
@@ -692,10 +727,15 @@ async function answerFollowup(originalQuestion, originalAnswer, followupQuestion
     url: '',
   }));
   const allCandidates = [...customCandidates, ...results];
+  const followUpTerms = extractImportantTerms(followupQuestion);
+  const snippetLen = 550;
 
-  const context = allCandidates.slice(0, 8).map((c, i) =>
-    `[${i + 1}] Title: ${c.title} | Category: ${c.category}\n${truncateSnippet(c.content, 400)}`,
-  ).join('\n\n');
+  const context = allCandidates.slice(0, 8).map((c, i) => {
+    const snippet = followUpTerms.length
+      ? extractRelevantSnippet(c.content, followUpTerms, snippetLen)
+      : truncateSnippet(c.content, snippetLen);
+    return `[${i + 1}] Title: ${c.title} | Category: ${c.category}\n${snippet}`;
+  }).join('\n\n');
 
   const messages = [
     {
