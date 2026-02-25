@@ -1,0 +1,73 @@
+# Copy-paste into Discord to test /ask (one line per test)
+
+# VPS & SETUP
+/ask question:How do I set up a VPS for the bots?
+/ask question:What VPS provider does HGT recommend?
+/ask question:Do I need a VPS to run the bots?
+/ask question:How do I import the Holy Grail bots into NinjaTrader?
+/ask question:How do I run the setup installer and enter my API key?
+/ask question:Where does the setup installer put my API key?
+
+# BOT CONFIGURATION
+/ask question:How do I configure Excalibur?
+/ask question:Leviathan setup – instrument and timeframe?
+/ask question:Phoenix configuration?
+/ask question:How do I add Nemesis to NinjaTrader?
+/ask question:Flashpoint instrument and timeframe?
+/ask question:Merlin setup?
+/ask question:Reaper configuration – which instrument?
+/ask question:Tempest setup?
+/ask question:What is the general workflow for configuring any bot?
+
+# PROP FIRM METRICS & CONCEPTS
+/ask question:What is the consistency rule for prop firms?
+/ask question:What are winning days and why do props require them?
+/ask question:What is profit target?
+/ask question:What is payout cap?
+/ask question:Eval vs activation pricing – what's the difference?
+/ask question:What is evaluation hedging and how does it work?
+/ask question:What is trailing drawdown?
+/ask question:What is end-of-day drawdown?
+
+# PROP FIRM RECOMMENDATIONS
+/ask question:Which prop firm is best for Reaper?
+/ask question:Best prop for Leviathan?
+/ask question:Which prop has the fastest payouts?
+/ask question:Tell me about Apex Trader Funding
+/ask question:What is Bulenox good for?
+
+# TRADING STRATEGIES & INSIGHTS
+/ask question:Excalibur modes – Strike vs Temper vs Purity?
+/ask question:Phoenix bot – Dawn vs Inferno mode?
+/ask question:What are Leviathan modes?
+/ask question:Merlin Counterspell vs Arcanum?
+/ask question:Flashpoint Ignite vs Afterburn?
+/ask question:Reaper contract sizing for eval vs funded?
+/ask question:How many contracts do I use on Reaper for a 50k Lucid?
+/ask question:How many SIL contracts should I use with Reaper on a 50k Lucid account?
+/ask question:How many contracts on Excalibur for 50k Lucid?
+/ask question:Reaper sizing for funded – 1 SIL or 2 SIL?
+/ask question:Tempest sizing and risk?
+/ask question:How do I size contracts for prop accounts?
+/ask question:Which bots can run in the same prop firm without hedging?
+/ask question:How many funded accounts should I have ready?
+/ask question:What strategy should I use for evaluations vs funded?
+
+# SUPPORT & CONTACT
+/ask question:How do I contact HGT support?
+/ask question:Is there a video setup guide?
+
+# FUZZY / NATURAL LANGUAGE
+/ask question:I'm new – what do I need to get started?
+/ask question:Excalibur isn't trading – what instrument?
+/ask question:I want EOD drawdown, which prop?
+/ask question:Can I pass an eval in one day?
+/ask question:Nemesis won't add from Strategies tab
+
+# EDGE CASES (expect NO_MATCH or low confidence)
+/ask question:What's the weather like today?
+/ask question:Should I buy Tesla stock?
+
+# COMING SOON
+/ask question:Oracle configuration?
+/ask question:Revenant configuration?
