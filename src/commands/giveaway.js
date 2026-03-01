@@ -183,13 +183,47 @@ async function handleEntries(interaction) {
     });
   }
 
-  let list = entries
-    .map((e, i) => `${i + 1}. <@${e.user_id}>`)
-    .join('\n');
+  const roleIds = active.eligible_role_ids
+    ? JSON.parse(active.eligible_role_ids)
+    : null;
+  const hasRoleFilter = roleIds && roleIds.length > 0;
+
+  let list;
+  let eligibleCount = entries.length;
+
+  if (hasRoleFilter) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.guild.members.fetch();
+
+    const eligibleSet = new Set(
+      entries
+        .filter((entry) => {
+          const member = interaction.guild.members.cache.get(entry.user_id);
+          if (!member) return false;
+          return roleIds.some((roleId) => member.roles.cache.has(roleId));
+        })
+        .map((e) => e.user_id),
+    );
+    eligibleCount = eligibleSet.size;
+
+    list = entries
+      .map((e, i) => {
+        const eligible = eligibleSet.has(e.user_id);
+        const mark = eligible ? '✅' : '❌';
+        return `${i + 1}. <@${e.user_id}> ${mark}`;
+      })
+      .join('\n');
+  } else {
+    list = entries
+      .map((e, i) => `${i + 1}. <@${e.user_id}> ✅`)
+      .join('\n');
+  }
 
   // Truncate if too long for embed description (4096 char limit)
   if (list.length > 3900) {
-    list = list.slice(0, 3900) + `\n\n... and more (${entries.length} total)`;
+    list =
+      list.slice(0, 3900) +
+      `\n\n... and more (${entries.length} total${hasRoleFilter ? `, ${eligibleCount} eligible` : ''})`;
   }
 
   // Embed title has a 256 char limit; prefix "Entries for: " is 15 chars
@@ -199,13 +233,21 @@ async function handleEntries(interaction) {
       ? active.name.slice(0, maxTitleLength - 3) + '...'
       : active.name;
 
+  const footerText = hasRoleFilter
+    ? `${entries.length} total · ${eligibleCount} eligible`
+    : `${entries.length} total entries`;
+
   const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
     .setTitle(`Entries for: ${titleName}`)
     .setDescription(list)
-    .setFooter({ text: `${entries.length} total entries` });
+    .setFooter({ text: footerText });
 
-  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  if (hasRoleFilter) {
+    await interaction.editReply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  } else {
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  }
 }
 
 async function handleAddUser(interaction) {
