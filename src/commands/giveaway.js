@@ -192,9 +192,16 @@ async function handleEntries(interaction) {
     list = list.slice(0, 3900) + `\n\n... and more (${entries.length} total)`;
   }
 
+  // Embed title has a 256 char limit; prefix "Entries for: " is 15 chars
+  const maxTitleLength = 256 - 'Entries for: '.length;
+  const titleName =
+    active.name.length > maxTitleLength
+      ? active.name.slice(0, maxTitleLength - 3) + '...'
+      : active.name;
+
   const embed = new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
-    .setTitle(`Entries for: ${active.name}`)
+    .setTitle(`Entries for: ${titleName}`)
     .setDescription(list)
     .setFooter({ text: `${entries.length} total entries` });
 
