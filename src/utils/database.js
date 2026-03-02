@@ -75,6 +75,17 @@ function endGiveaway(giveawayId, winnerId) {
   stmt.run(winnerId || null, giveawayId);
 }
 
+function getRecentWinnerIds(limit = 2) {
+  const rows = db
+    .prepare(
+      `SELECT winner_id FROM giveaways
+       WHERE status = 'ended' AND winner_id IS NOT NULL
+       ORDER BY ended_at DESC LIMIT ?`,
+    )
+    .all(limit);
+  return [...new Set(rows.map((r) => r.winner_id))];
+}
+
 function addKnowledge(topic, content, addedBy) {
   const result = db.prepare(
     'INSERT INTO knowledge (topic, content, added_by) VALUES (?, ?, ?)',
@@ -101,6 +112,7 @@ module.exports = {
   addEntry,
   getEntries,
   endGiveaway,
+  getRecentWinnerIds,
   addKnowledge,
   getAllKnowledge,
   getKnowledgeById,

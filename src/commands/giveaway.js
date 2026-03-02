@@ -319,9 +319,16 @@ async function handleEnd(interaction) {
     });
   }
 
-  // Random pick
+  // Exclude winners from the last two giveaways for fairness
+  const recentWinnerIds = db.getRecentWinnerIds(2);
+  const drawPool = eligibleEntries.filter(
+    (entry) => !recentWinnerIds.includes(entry.user_id),
+  );
+  const pool = drawPool.length > 0 ? drawPool : eligibleEntries;
+  const usedFallbackDraw = drawPool.length === 0;
+
   const winner =
-    eligibleEntries[Math.floor(Math.random() * eligibleEntries.length)];
+    pool[Math.floor(Math.random() * pool.length)];
   db.endGiveaway(active.id, winner.user_id);
 
   // Post winner announcement to #giveaways
