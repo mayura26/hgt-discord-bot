@@ -139,7 +139,11 @@ async function handleStart(interaction) {
   );
 
   // Post to Discord first, then save to DB
-  const sent = await channel.send({ embeds: [embed], components: [row] });
+  const sent = await channel.send({
+    content: '@here',
+    embeds: [embed],
+    components: [row],
+  });
   db.createGiveaway(message, roleIds.length > 0 ? roleIds : null, sent.id);
 
   await interaction.reply({
