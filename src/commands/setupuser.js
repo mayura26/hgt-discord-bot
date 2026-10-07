@@ -8,7 +8,7 @@ const {
   ROLES,
   PERSONAL_GUIDANCE_CATEGORY_NAME,
 } = require('../constants');
-const { getOnboardingEmbed } = require('../utils/onboardingEmbed');
+const { getOnboardingEmbeds } = require('../utils/onboardingEmbed');
 
 // Discord channel names: 2-100 chars; only a-z, 0-9, hyphen, underscore.
 function channelNameSlug(user) {
@@ -194,6 +194,8 @@ module.exports = {
     const welcomeContent = `Hello ${user},\n\nThis channel is your personal support channel. We can help you with setup and configuration, discuss your goals, and provide advice on bot lineups, account purchasing, and related topics. Reach out here anytime if you ever have any concerns.`;
 
     await channel.send({ content: welcomeContent });
-    await channel.send({ embeds: [getOnboardingEmbed()] });
+    for (const embed of getOnboardingEmbeds(guild)) {
+      await channel.send({ embeds: [embed] });
+    }
   },
 };

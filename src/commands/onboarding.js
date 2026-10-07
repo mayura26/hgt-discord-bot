@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { getOnboardingEmbed } = require('../utils/onboardingEmbed');
+const { getOnboardingEmbeds } = require('../utils/onboardingEmbed');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -7,6 +7,10 @@ module.exports = {
     .setDescription('Shows the setup steps for Holy Grail Trading'),
 
   async execute(interaction) {
-    await interaction.reply({ embeds: [getOnboardingEmbed()] });
+    const [first, ...rest] = getOnboardingEmbeds(interaction.guild);
+    await interaction.reply({ embeds: [first] });
+    for (const embed of rest) {
+      await interaction.followUp({ embeds: [embed] });
+    }
   },
 };

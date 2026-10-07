@@ -1,7 +1,10 @@
+const GETTING_STARTED_URL = 'https://portal.holygrailtrading.io/support/getting-started';
+
 module.exports = {
   CHANNELS: {
     LANDING_SPOT: 'landing-spot',
     GIVEAWAYS: 'giveaways',
+    BOT_GUIDANCE: 'bot-guidance',
   },
   ROLES: {
     STAFF: 'Admin',           // Mentioned in ticket messages; can be highest role
@@ -31,7 +34,11 @@ module.exports = {
     WEBSITE: 'https://holygrailtrading.io/',
     BACKTESTS: 'https://portal.holygrailtrading.io/backtests-public',
     PORTAL: 'https://portal.holygrailtrading.io/',
-    GETTING_STARTED: 'https://portal.holygrailtrading.io/support/getting-started',
+    GETTING_STARTED: GETTING_STARTED_URL,
+    VPS_SETUP: `${GETTING_STARTED_URL}#vps-setup`,
+    NT_CONFIGURATION: `${GETTING_STARTED_URL}#ninjatrader-configuration`,
+    SETUP_INSTALLER: `${GETTING_STARTED_URL}#setup-installer`,
+    PLUGIN_INSTALL_VIDEO: 'https://www.youtube.com/watch?v=GCgVpty7hcE',
     BOT_SETUP: 'https://portal.holygrailtrading.io/support/bot-configuration',
     TRADING_STRATEGIES: 'https://portal.holygrailtrading.io/support/trading-strategies',
     VIDEO_TUTORIALS: 'https://portal.holygrailtrading.io/support/video-tutorials',
