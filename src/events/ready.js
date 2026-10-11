@@ -1,6 +1,6 @@
 const { Events } = require('discord.js');
-const { initSupportIndexes, isAvailable } = require('../utils/supportIndex');
-const { syncGuidanceSnapshot } = require('../utils/botGuidanceSync');
+const { initSupportIndexes, isAvailable, refreshChannelIndex } = require('../utils/supportIndex');
+const { syncGuidanceSnapshot, getChannelNotes } = require('../utils/botGuidanceSync');
 
 module.exports = {
   name: Events.ClientReady,
@@ -17,5 +17,6 @@ module.exports = {
     } catch (error) {
       console.error('[BotGuidance] startup sync failed:', error);
     }
+    refreshChannelIndex(getChannelNotes());
   },
 };

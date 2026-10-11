@@ -9,6 +9,8 @@
 /ask question:Where does the setup installer put my API key?
 
 # BOT CONFIGURATION
+/ask question:What bot should I use?
+/ask question:Which bot is recommended right now?
 /ask question:How do I configure Excalibur?
 /ask question:Leviathan setup – instrument and timeframe?
 /ask question:Phoenix configuration?

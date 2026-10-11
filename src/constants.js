@@ -5,6 +5,7 @@ module.exports = {
     LANDING_SPOT: 'landing-spot',
     GIVEAWAYS: 'giveaways',
     BOT_GUIDANCE: 'bot-guidance',
+    GETTING_STARTED: 'getting-started',
   },
   ROLES: {
     STAFF: 'Admin',           // Mentioned in ticket messages; can be highest role

@@ -3,8 +3,9 @@
 const MiniSearch = require('minisearch');
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
-const { COLORS, CUSTOM_IDS } = require('../constants');
+const { CHANNELS, COLORS, CUSTOM_IDS } = require('../constants');
 const { getAllKnowledge } = require('./database');
+const { setNotesListener } = require('./botGuidanceSync');
 
 // ---------------------------------------------------------------------------
 // Module-level state
@@ -13,8 +14,17 @@ const { getAllKnowledge } = require('./database');
 const _state = {
   public:  { etag: null, items: [], index: null },
   portal:  { etag: null, items: [], index: null },
+  channels: { items: [], index: null },
   refreshTimer: null,
 };
+
+const CHANNEL_AUTHORITY_PROMPT =
+  'Articles in the Bot Guidance category are the authority for which bot to use and for current bot recommendations. ' +
+  'Articles in the Getting Started category are the authority for setup. ' +
+  'Follow those articles when they apply to the question. ';
+
+const GUIDANCE_CAP = 4;
+const STARTED_CAP = 2;
 
 // ---------------------------------------------------------------------------
 // Source configuration
@@ -45,7 +55,7 @@ function buildIndex() {
   return new MiniSearch({
     idField: 'id',
     fields: ['title', 'tags', 'content', 'category'],
-    storeFields: ['id', 'title', 'category', 'content', 'url'],
+    storeFields: ['id', 'title', 'category', 'content', 'url', 'source'],
     searchOptions: {
       boost: { title: 3, tags: 2, content: 1 },
       prefix: true,
@@ -199,7 +209,7 @@ async function askOpenAI(question, candidates, importantTerms = []) {
   if (!apiKey || !candidates.length) return null;
 
   const snippetLen = 550;
-  const context = candidates.slice(0, 10).map((c, i) => {
+  const context = candidates.slice(0, 12).map((c, i) => {
     const snippet = importantTerms.length
       ? extractRelevantSnippet(c.content, importantTerms, snippetLen)
       : truncateSnippet(c.content, snippetLen);
@@ -213,6 +223,7 @@ async function askOpenAI(question, candidates, importantTerms = []) {
         'You are a support assistant for Holy Grail Trading (HGT), a prop trading education and tooling company. ' +
         'Help members with questions about HGT products, NinjaTrader, prop trading, futures trading, and related trading topics. ' +
         'Use the provided knowledge base articles as your primary source. ' +
+        CHANNEL_AUTHORITY_PROMPT +
         'For questions within the trading domain that the articles do not fully cover, you may draw on your general knowledge — but be concise (2-4 sentences) and do not speculate. ' +
         'Do not provide specific financial or investment advice (e.g. "buy X", "trade Y strategy"). ' +
         'You MUST respond with exactly NO_MATCH (nothing else) if ANY of these apply: ' +
@@ -332,6 +343,105 @@ async function fetchSource(sourceKey) {
   console.log(`[SupportIndex] ${sourceKey} index loaded: ${items.length} items.`);
 }
 
+function channelDocument(note) {
+  const source = note.channelName;
+  const category = source === CHANNELS.BOT_GUIDANCE ? 'Bot Guidance' : 'Getting Started';
+  const line = String(note.content || '')
+    .split('\n')
+    .map((part) => part.trim())
+    .find(Boolean) || category;
+  const title = line.length > 120 ? `${line.slice(0, 117)}…` : line;
+  const tags = source === CHANNELS.BOT_GUIDANCE
+    ? 'bot guidance recommended bots'
+    : 'getting started setup';
+
+  return {
+    id: `discord_${source}_${note.id}`,
+    title,
+    category,
+    tags,
+    content: note.content,
+    url: note.url || '',
+    source,
+  };
+}
+
+/**
+ * Rebuild the Discord channel index from the in-memory guidance notes.
+ * @param {object[]} channelNotes
+ */
+function refreshChannelIndex(channelNotes) {
+  const items = (Array.isArray(channelNotes) ? channelNotes : [])
+    .filter((note) => note && note.content && note.id)
+    .map(channelDocument);
+  const index = buildIndex();
+  if (items.length > 0) index.addAll(items);
+  _state.channels.items = items;
+  _state.channels.index = items.length > 0 ? index : null;
+  console.log(`[SupportIndex] channel index loaded: ${items.length} items.`);
+}
+
+setNotesListener(refreshChannelIndex);
+
+/**
+ * True when the question is asking which bot to use.
+ * @param {string} query
+ * @returns {boolean}
+ */
+function isBotChoiceQuery(query) {
+  const q = query.toLowerCase();
+  if (/\bselecting bots\b/.test(q)) return true;
+  if (/\b(what|which)\s+bots?\b/.test(q) && /\b(use|recommend|pick|choose|start|should|best|right)\b/.test(q)) return true;
+  if (/\brecommend(?:ed|ation)?\b.{0,40}\bbots?\b/.test(q)) return true;
+  if (/\bbots?\b.{0,40}\b(should i use|to use|do i use|recommend)\b/.test(q)) return true;
+  if (/\b(best|right|good)\s+bots?\b/.test(q)) return true;
+  return false;
+}
+
+function forcedChannelCandidates() {
+  const items = _state.channels.items || [];
+  const guidance = items.filter((item) => item.source === CHANNELS.BOT_GUIDANCE).slice(0, GUIDANCE_CAP);
+  const started = items.filter((item) => item.source === CHANNELS.GETTING_STARTED).slice(0, STARTED_CAP);
+  return [...guidance, ...started];
+}
+
+function customCandidates() {
+  return getAllKnowledge().map(e => ({
+    id: `custom_${e.id}`,
+    title: e.topic,
+    category: 'Admin Knowledge',
+    content: e.content,
+    url: '',
+  }));
+}
+
+function candidatesForModel(query, results) {
+  const custom = customCandidates();
+  const rest = results.slice(0, 6);
+  if (!isBotChoiceQuery(query)) return [...custom, ...rest];
+
+  const forced = forcedChannelCandidates();
+  const seen = new Set(forced.map((item) => item.id));
+  return [...forced, ...custom, ...rest.filter((item) => !seen.has(item.id))];
+}
+
+function searchSourceHits(query) {
+  const combined = [];
+  for (const sourceKey of ['public', 'portal', 'channels']) {
+    const { index } = _state[sourceKey];
+    if (!index) continue;
+    const hits = index.search(query, { limit: 8 });
+    for (const hit of hits) combined.push({ ...hit, _source: hit.source || sourceKey });
+  }
+
+  const seen = new Map();
+  for (const hit of combined) {
+    const existing = seen.get(hit.id);
+    if (!existing || hit.score > existing.score) seen.set(hit.id, hit);
+  }
+  return Array.from(seen.values());
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -374,7 +484,9 @@ async function reinitSupportIndexes() {
  * @returns {boolean}
  */
 function isAvailable() {
-  return _state.public.index !== null || _state.portal.index !== null;
+  return _state.public.index !== null
+    || _state.portal.index !== null
+    || (_state.channels.items?.length > 0);
 }
 
 /**
@@ -384,24 +496,7 @@ function isAvailable() {
  */
 async function searchIndexes(query) {
   const importantTerms = extractImportantTerms(query);
-  const combined = [];
-
-  for (const sourceKey of ['public', 'portal']) {
-    const { index } = _state[sourceKey];
-    if (!index) continue;
-
-    const hits = index.search(query, { limit: 8 });
-    for (const hit of hits) combined.push({ ...hit, _source: sourceKey });
-  }
-
-  // De-duplicate by id — keep higher-scored copy
-  const seen = new Map();
-  for (const hit of combined) {
-    const existing = seen.get(hit.id);
-    if (!existing || hit.score > existing.score) seen.set(hit.id, hit);
-  }
-
-  let results = Array.from(seen.values());
+  let results = searchSourceHits(query);
 
   // Compute term-overlap adjusted score
   for (const r of results) {
@@ -432,22 +527,16 @@ async function searchIndexes(query) {
     }
   }
 
-  // No results at all — nothing to work with
-  if (!results.length) {
+  // Bot-choice questions put #bot-guidance, then #getting-started, ahead of the other hits,
+  // even when keyword overlap would otherwise drop those notes.
+  const modelCandidates = candidatesForModel(query, results);
+  const hasChannelAuthority = modelCandidates.some((item) =>
+    item.source === CHANNELS.BOT_GUIDANCE || item.source === CHANNELS.GETTING_STARTED);
+  if (!results.length && !hasChannelAuthority) {
     return { results, confidence: 'none', importantTerms, openAIAnswer: null, citedResults: null };
   }
 
-  // Prepend custom admin knowledge entries as priority candidates
-  const customCandidates = getAllKnowledge().map(e => ({
-    id: `custom_${e.id}`,
-    title: e.topic,
-    category: 'Admin Knowledge',
-    content: e.content,
-    url: '',
-  }));
-
-  // Always call OpenAI — it decides whether the question is answerable from the articles
-  const openAIResult = await askOpenAI(query, [...customCandidates, ...results.slice(0, 6)], importantTerms);
+  const openAIResult = await askOpenAI(query, modelCandidates, importantTerms);
 
   if (openAIResult) {
     return {
@@ -704,38 +793,15 @@ function buildAskActionRow() {
 async function answerFollowup(originalQuestion, originalAnswer, followupQuestion) {
   const apiKey = config.openaiApiKey;
 
-  // Gather MiniSearch candidates for the follow-up topic
-  const candidates = [];
-  for (const sourceKey of ['public', 'portal']) {
-    const { index } = _state[sourceKey];
-    if (!index) continue;
-    for (const hit of index.search(followupQuestion, { limit: 8 })) candidates.push(hit);
-  }
-
-  if (!candidates.length && !apiKey) return null;
-
-  // Dedupe by id
-  const seen = new Map();
-  for (const h of candidates) {
-    if (!seen.has(h.id) || h.score > seen.get(h.id).score) seen.set(h.id, h);
-  }
-  const results = Array.from(seen.values()).sort((a, b) => b.score - a.score);
-
+  const results = searchSourceHits(followupQuestion).sort((a, b) => b.score - a.score);
+  if (!results.length && !(_state.channels.items?.length) && !apiKey) return null;
   if (!apiKey) return { openAIAnswer: null, citedResults: null, results };
 
-  // Prepend custom admin knowledge entries as priority candidates
-  const customCandidates = getAllKnowledge().map(e => ({
-    id: `custom_${e.id}`,
-    title: e.topic,
-    category: 'Admin Knowledge',
-    content: e.content,
-    url: '',
-  }));
-  const allCandidates = [...customCandidates, ...results];
+  const allCandidates = candidatesForModel(followupQuestion, results);
   const followUpTerms = extractImportantTerms(followupQuestion);
   const snippetLen = 550;
 
-  const context = allCandidates.slice(0, 8).map((c, i) => {
+  const context = allCandidates.slice(0, 12).map((c, i) => {
     const snippet = followUpTerms.length
       ? extractRelevantSnippet(c.content, followUpTerms, snippetLen)
       : truncateSnippet(c.content, snippetLen);
@@ -747,6 +813,7 @@ async function answerFollowup(originalQuestion, originalAnswer, followupQuestion
       role: 'system',
       content:
         'You are a support assistant for Holy Grail Trading. ' +
+        CHANNEL_AUTHORITY_PROMPT +
         'Answer the follow-up using ONLY the provided knowledge base articles. ' +
         'Be concise (2-4 sentences). If nothing applies, respond: NO_MATCH. ' +
         'End with: SOURCES: [comma-separated article numbers]',
@@ -805,6 +872,7 @@ async function answerFollowup(originalQuestion, originalAnswer, followupQuestion
 module.exports = {
   initSupportIndexes,
   reinitSupportIndexes,
+  refreshChannelIndex,
   isAvailable,
   searchIndexes,
   isFinancialAdviceQuery,
