@@ -1,5 +1,6 @@
 const { Events } = require('discord.js');
 const { initSupportIndexes, isAvailable } = require('../utils/supportIndex');
+const { syncGuidanceSnapshot } = require('../utils/botGuidanceSync');
 
 module.exports = {
   name: Events.ClientReady,
@@ -11,5 +12,10 @@ module.exports = {
       ? '[SupportIndex] Knowledge base ready.'
       : '[SupportIndex] WARNING: Both indexes failed to load.',
     );
+    try {
+      await syncGuidanceSnapshot(client);
+    } catch (error) {
+      console.error('[BotGuidance] startup sync failed:', error);
+    }
   },
 };

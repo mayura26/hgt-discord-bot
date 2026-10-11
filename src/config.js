@@ -9,4 +9,6 @@ module.exports = {
   portalIndexUrl: process.env.PORTAL_INDEX_URL || 'https://portal.holygrailtrading.io/support-index.json',
   supportConfidenceThreshold: parseFloat(process.env.SUPPORT_CONFIDENCE_THRESHOLD) || 5.0,
   openaiApiKey: process.env.OPENAI_API_KEY || null,
+  portalBaseUrl: process.env.PORTAL_BASE_URL || 'https://portal.holygrailtrading.io',
+  botGuidanceSyncSecret: process.env.BOT_GUIDANCE_SYNC_SECRET || null,
 };
