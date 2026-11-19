@@ -70,6 +70,17 @@ module.exports = {
     )
     .addSubcommand((sub) =>
       sub
+        .setName('removeuser')
+        .setDescription('Remove a user from the active giveaway')
+        .addUserOption((opt) =>
+          opt
+            .setName('user')
+            .setDescription('The user to remove')
+            .setRequired(true),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
         .setName('end')
         .setDescription('End the active giveaway and draw a winner'),
     ),
@@ -85,6 +96,8 @@ module.exports = {
       await handleEntries(interaction);
     } else if (sub === 'adduser') {
       await handleAddUser(interaction);
+    } else if (sub === 'removeuser') {
+      await handleRemoveUser(interaction);
     } else if (sub === 'end') {
       await handleEnd(interaction);
     }
@@ -274,6 +287,31 @@ async function handleAddUser(interaction) {
   } else {
     await interaction.reply({
       content: `${user} is already entered in **${active.name}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+}
+
+async function handleRemoveUser(interaction) {
+  const active = db.getActiveGiveaway();
+  if (!active) {
+    return interaction.reply({
+      content: 'There is no active giveaway.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const user = interaction.options.getUser('user');
+  const removed = db.removeEntry(active.id, user.id);
+
+  if (removed) {
+    await interaction.reply({
+      content: `${user} has been removed from **${active.name}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  } else {
+    await interaction.reply({
+      content: `${user} is not entered in **${active.name}**.`,
       flags: MessageFlags.Ephemeral,
     });
   }

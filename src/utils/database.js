@@ -64,6 +64,14 @@ function addEntry(giveawayId, userId) {
   return result.changes > 0;
 }
 
+function removeEntry(giveawayId, userId) {
+  const stmt = db.prepare(
+    'DELETE FROM entries WHERE giveaway_id = ? AND user_id = ?',
+  );
+  const result = stmt.run(giveawayId, userId);
+  return result.changes > 0;
+}
+
 function getEntries(giveawayId) {
   return db.prepare('SELECT * FROM entries WHERE giveaway_id = ?').all(giveawayId);
 }
@@ -110,6 +118,7 @@ module.exports = {
   getActiveGiveaway,
   createGiveaway,
   addEntry,
+  removeEntry,
   getEntries,
   endGiveaway,
   getRecentWinnerIds,
